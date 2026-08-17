@@ -3,6 +3,7 @@ using VideoGameLibrary.Services;
 using VideoGameLibrary.ViewModels;
 using MaterialDesignThemes.Wpf;
 using Microsoft.Win32;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -15,7 +16,9 @@ namespace VideoGameLibrary
     {
         public static GameRepository Repository { get; private set; } = null!;
         private static GameApiService _apiService = null!;
+        public static GameApiService ApiService => _apiService;
         public static bool IsDarkTheme { get; private set; }
+        public static string CurrentDatabasePath { get; private set; } = string.Empty;
 
         private static readonly string ConfigFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VideoGameLibrary");
@@ -49,7 +52,7 @@ namespace VideoGameLibrary
             e.SetObserved();
         }
 
-        protected override void OnStartup(StartupEventArgs e)
+        protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
@@ -76,6 +79,8 @@ namespace VideoGameLibrary
 
                 var db = new GameDbContext(dbPath);
                 Repository = new GameRepository(db);
+                CurrentDatabasePath = dbPath;
+                await Repository.PurgeExpiredTrashAsync();
 
                 _apiService = new GameApiService(
                     config.ScanDexToken,
@@ -87,6 +92,8 @@ namespace VideoGameLibrary
                 var mainVm = new MainViewModel(Repository, _apiService);
                 var mainWindow = new MainWindow(mainVm);
                 mainWindow.Show();
+
+                _ = CheckForUpdatesAsync(mainVm);
             }
             catch (Exception ex)
             {
@@ -98,7 +105,18 @@ namespace VideoGameLibrary
             }
         }
 
-        private string? GetOrSelectDatabase()
+        private static async Task CheckForUpdatesAsync(MainViewModel mainVm)
+        {
+            var update = await UpdateCheckService.CheckForUpdateAsync();
+            if (update == null) return;
+
+            mainVm.SnackbarMessageQueue.Enqueue(
+                $"Hay una nueva versión disponible ({update.Version}).",
+                "DESCARGAR",
+                () => Process.Start(new ProcessStartInfo(update.Url) { UseShellExecute = true }));
+        }
+
+        private static string? GetOrSelectDatabase()
         {
             var lastDb = LoadConfig().LastDatabasePath;
 
@@ -108,7 +126,57 @@ namespace VideoGameLibrary
             return PromptForDatabase();
         }
 
-        private string? PromptForDatabase()
+        // Cambia de colección sin reiniciar la app: crea un repositorio nuevo apuntando al
+        // .db elegido y lo deja como el activo. Quien llame es responsable de refrescar la UI.
+        public static async Task<bool> SwitchDatabaseInteractiveAsync()
+        {
+            var path = PromptForDatabase();
+            if (path == null) return false;
+
+            await SwitchDatabaseAsync(path);
+            return true;
+        }
+
+        public static async Task SwitchDatabaseAsync(string path)
+        {
+            var db = new GameDbContext(path);
+            Repository = new GameRepository(db);
+            CurrentDatabasePath = path;
+            await Repository.PurgeExpiredTrashAsync();
+            SaveLastPath(path);
+        }
+
+        // Renombra (o mueve) el archivo .db actual. Hay que soltar el archivo antes de moverlo:
+        // Dispose() cierra la conexión, pero Microsoft.Data.Sqlite mantiene un pool de conexiones
+        // que puede seguir reteniendo el archivo hasta que se limpia explícitamente.
+        public static Task<string?> RenameDatabaseFileAsync(string newFileNameOrPath)
+        {
+            var fileName = newFileNameOrPath.EndsWith(".db", StringComparison.OrdinalIgnoreCase)
+                ? newFileNameOrPath
+                : newFileNameOrPath + ".db";
+            var newPath = Path.IsPathRooted(fileName)
+                ? fileName
+                : Path.Combine(Path.GetDirectoryName(CurrentDatabasePath)!, fileName);
+
+            if (string.Equals(newPath, CurrentDatabasePath, StringComparison.OrdinalIgnoreCase))
+                return Task.FromResult<string?>(null);
+
+            if (File.Exists(newPath))
+                throw new IOException("Ya existe un archivo con ese nombre.");
+
+            Repository.Dispose();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            File.Move(CurrentDatabasePath, newPath);
+
+            var db = new GameDbContext(newPath);
+            Repository = new GameRepository(db);
+            CurrentDatabasePath = newPath;
+            SaveLastPath(newPath);
+
+            return Task.FromResult<string?>(newPath);
+        }
+
+        private static string? PromptForDatabase()
         {
             var result = MessageBox.Show(
                 "¿Quieres abrir una colección existente o crear una nueva?\n\n" +

@@ -24,6 +24,7 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private string _notes = string.Empty;
         [ObservableProperty] private int _rating;
         [ObservableProperty] private bool _played;
+        [ObservableProperty] private bool _isWishlist;
         [ObservableProperty] private bool _isSearching;
         [ObservableProperty] private string _errorMessage = string.Empty;
         [ObservableProperty] private bool _canPickAgain;
@@ -60,6 +61,7 @@ namespace VideoGameLibrary.ViewModels
             Notes = game.Notes;
             Rating = game.Rating;
             Played = game.Played;
+            IsWishlist = game.IsWishlist;
         }
 
         [RelayCommand]
@@ -215,7 +217,8 @@ namespace VideoGameLibrary.ViewModels
                 CoverData = CoverData,
                 Notes = Notes,
                 Rating = Rating,
-                Played = Played
+                Played = Played,
+                IsWishlist = IsWishlist
             };
         }
     }

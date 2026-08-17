@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace VideoGameLibrary
 {
@@ -21,12 +22,27 @@ namespace VideoGameLibrary
             InitializeComponent();
             DataContext = vm;
             UpdateThemeIcon();
+            ApplyFabColors();
             vm.PickCandidate = ShowCandidatePickerAsync;
             Loaded += async (_, _) =>
             {
                 await vm.LoadGamesAsync();
                 TxtQuickScan.Focus();
             };
+        }
+
+        // Se lee el color real del tema (el mismo que usa la barra superior) en vez de una clave
+        // de recurso, para garantizar que el botón flotante coincide exactamente con el header.
+        private void ApplyFabColors()
+        {
+            var primaryMid = new PaletteHelper().GetTheme().PrimaryMid.Color;
+            var brush = new SolidColorBrush(primaryMid);
+
+            FabMain.Background = brush;
+            FabTrash.Background = brush;
+            FabStats.Background = brush;
+            FabSettings.Background = brush;
+            FabWishlist.Background = brush;
         }
 
         private Task<Game?> ShowCandidatePickerAsync(List<Game> candidates)
@@ -64,10 +80,20 @@ namespace VideoGameLibrary
             ThemeIcon.Kind = App.IsDarkTheme ? PackIconKind.WeatherSunny : PackIconKind.WeatherNight;
         }
 
-        private void BtnSettings_Click(object sender, RoutedEventArgs e)
+        private async void BtnSettings_Click(object sender, RoutedEventArgs e)
         {
+            var repoBefore = App.Repository;
             var dialog = new SettingsDialog { Owner = this };
             dialog.ShowDialog();
+
+            if (!ReferenceEquals(App.Repository, repoBefore))
+            {
+                // Se ha cambiado de colección: hace falta un ViewModel nuevo apuntando al repositorio nuevo
+                var newVm = new MainViewModel(App.Repository, App.ApiService) { PickCandidate = ShowCandidatePickerAsync };
+                DataContext = newVm;
+            }
+
+            await Vm.LoadGamesAsync(); // recarga: por el cambio de colección, o por una importación desde Ajustes
         }
 
         private void BtnLog_Click(object sender, RoutedEventArgs e)
@@ -76,15 +102,51 @@ namespace VideoGameLibrary
             dialog.ShowDialog();
         }
 
+        private async void BtnTrash_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new TrashDialog { Owner = this };
+            dialog.ShowDialog();
+
+            if (dialog.Changed)
+                await Vm.LoadGamesAsync(); // por si se ha restaurado algo
+        }
+
         private void BtnStats_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new StatsDialog(new StatsViewModel(App.Repository)) { Owner = this };
             dialog.ShowDialog();
         }
 
+        private void FabToggle_Click(object sender, MouseButtonEventArgs e)
+        {
+            Vm.IsFabOpen = !Vm.IsFabOpen;
+        }
+
+        private void FabOption_Click(object sender, MouseButtonEventArgs e)
+        {
+            Vm.IsFabOpen = false;
+
+            switch (((FrameworkElement)sender).Tag as string)
+            {
+                case "wishlist":
+                    Vm.ToggleWishlistViewCommand.Execute(null);
+                    break;
+                case "stats":
+                    BtnStats_Click(sender, e);
+                    break;
+                case "trash":
+                    BtnTrash_Click(sender, e);
+                    break;
+                case "settings":
+                    BtnSettings_Click(sender, e);
+                    break;
+            }
+        }
+
         private async void BtnAdd_Click(object sender, RoutedEventArgs e)
         {
             var editVm = App.GetEditViewModel();
+            editVm.IsWishlist = Vm.IsWishlistView; // añadir desde la lista de deseos marca el juego como deseado
             var dialog = new GameEditDialog(editVm) { Owner = this };
 
             if (dialog.ShowDialog() == true)
@@ -97,7 +159,8 @@ namespace VideoGameLibrary
                 catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
                 {
                     LoggingService.LogError("Guardar juego — código de barras duplicado", ex);
-                    MessageBox.Show("Ya existe un juego con ese código de barras en la colección.",
+                    MessageBox.Show(
+                        "Ya existe un juego con ese código de barras (puede estar en la papelera). Revisa la papelera o usa otro código.",
                         "Código de barras duplicado", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
@@ -143,6 +206,22 @@ namespace VideoGameLibrary
             }
         }
 
+        private async void BtnMoveToCollection_Click(object sender, RoutedEventArgs e)
+        {
+            if (((Button)sender).Tag is not ViewModels.GameViewModel gvm) return;
+
+            try
+            {
+                await Vm.MoveToCollectionAsync(gvm);
+            }
+            catch (Exception ex)
+            {
+                LoggingService.LogError($"Mover a la colección \"{gvm.Title}\"", ex);
+                MessageBox.Show($"Error al mover el juego a la colección:\n{ex.Message}",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void BtnExport_Click(object sender, RoutedEventArgs e) => ShowExportMenu(sender, selectionOnly: false);
 
         private void BtnExportSelected_Click(object sender, RoutedEventArgs e) => ShowExportMenu(sender, selectionOnly: true);
@@ -182,7 +261,7 @@ namespace VideoGameLibrary
 
             var games = selectionOnly
                 ? Vm.Games.Where(g => g.IsSelected).Select(g => g.ToModel()).ToList()
-                : await App.Repository.GetAllAsync();
+                : (await App.Repository.GetAllAsync()).Where(g => g.IsWishlist == Vm.IsWishlistView).ToList();
 
             var exporter = new Services.ExportService();
 

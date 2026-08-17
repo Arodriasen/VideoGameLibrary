@@ -24,6 +24,10 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private string _statusMessage = string.Empty;
         [ObservableProperty] private string _quickScanBarcode = string.Empty;
 
+        [ObservableProperty] private string _collectionName = string.Empty;
+        [ObservableProperty] private bool _hasCollectionName;
+        [ObservableProperty] private string _windowTitle = "Mi Colección de Juegos";
+
         [ObservableProperty] private ObservableCollection<FilterOption> _platformFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _genreFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _yearFilters = new();
@@ -40,6 +44,28 @@ namespace VideoGameLibrary.ViewModels
 
         [RelayCommand]
         private void ToggleListView() => IsListView = !IsListView;
+
+        [ObservableProperty] private bool _isFabOpen;
+
+        [ObservableProperty] private bool _isWishlistView;
+        [ObservableProperty] private string _totalSuffixText = "juegos";
+        [ObservableProperty] private string _emptyStateTitle = "Tu colección está vacía";
+        [ObservableProperty] private string _emptyStateSubtitle = "Pulsa \"Añadir juego\" o escanea un código de barras para empezar";
+
+        [RelayCommand]
+        private void ToggleWishlistView()
+        {
+            IsWishlistView = !IsWishlistView;
+
+            TotalSuffixText = IsWishlistView ? "en la lista de deseos" : "juegos";
+            EmptyStateTitle = IsWishlistView ? "Tu lista de deseos está vacía" : "Tu colección está vacía";
+            EmptyStateSubtitle = IsWishlistView
+                ? "Añade juegos que quieras comprar más adelante"
+                : "Pulsa \"Añadir juego\" o escanea un código de barras para empezar";
+
+            RebuildFilterOptions();
+            ApplyFilters();
+        }
 
         [RelayCommand]
         private void ClearSelection()
@@ -80,14 +106,21 @@ namespace VideoGameLibrary.ViewModels
             _allGames = await _repo.GetAllAsync();
             RebuildFilterOptions();
             ApplyFilters();
+
+            CollectionName = await _repo.GetCollectionNameAsync();
+            HasCollectionName = !string.IsNullOrWhiteSpace(CollectionName);
+            WindowTitle = HasCollectionName ? $"Mi Colección de Juegos — {CollectionName}" : "Mi Colección de Juegos";
+
             IsLoading = false;
         }
 
         private void RebuildFilterOptions()
         {
-            PlatformFilters = RebuildFacet(PlatformFilters, _allGames.Select(g => g.Platform));
-            GenreFilters = RebuildFacet(GenreFilters, _allGames.Select(g => g.Genre));
-            YearFilters = RebuildFacet(YearFilters, _allGames.Where(g => g.Year.HasValue).Select(g => g.Year!.Value.ToString()));
+            var scoped = _allGames.Where(g => g.IsWishlist == IsWishlistView);
+
+            PlatformFilters = RebuildFacet(PlatformFilters, scoped.Select(g => g.Platform));
+            GenreFilters = RebuildFacet(GenreFilters, scoped.Select(g => g.Genre));
+            YearFilters = RebuildFacet(YearFilters, scoped.Where(g => g.Year.HasValue).Select(g => g.Year!.Value.ToString()));
             RatingFilters = RebuildRatingFacet(RatingFilters);
         }
 
@@ -125,7 +158,7 @@ namespace VideoGameLibrary.ViewModels
 
         private void ApplyFilters()
         {
-            IEnumerable<Game> filtered = _allGames;
+            IEnumerable<Game> filtered = _allGames.Where(g => g.IsWishlist == IsWishlistView);
 
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
@@ -181,7 +214,8 @@ namespace VideoGameLibrary.ViewModels
             var existing = await _repo.GetByBarcodeAsync(barcode);
             if (existing != null)
             {
-                SnackbarMessageQueue.Enqueue($"\"{existing.Title}\" ya está en la colección.");
+                var where = existing.IsWishlist ? "tu lista de deseos" : "la colección";
+                SnackbarMessageQueue.Enqueue($"\"{existing.Title}\" ya está en {where}.");
                 return;
             }
 
@@ -206,7 +240,16 @@ namespace VideoGameLibrary.ViewModels
             if (!string.IsNullOrEmpty(game.CoverUrl) && game.CoverData == null)
                 game.CoverData = await _api.DownloadCoverAsync(game.CoverUrl);
 
-            await _repo.AddAsync(game);
+            try
+            {
+                await _repo.AddAsync(game);
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+            {
+                SnackbarMessageQueue.Enqueue($"Ese código ya existe en la papelera. Restaura o vacía la papelera primero.");
+                return;
+            }
+
             await LoadGamesAsync();
             SnackbarMessageQueue.Enqueue($"Añadido: {game.Title}");
         }
@@ -223,18 +266,19 @@ namespace VideoGameLibrary.ViewModels
 
         public async Task DeleteGameAsync(GameViewModel gvm)
         {
-            var game = gvm.ToModel();
-            await _repo.DeleteAsync(game.Id);
+            var id = gvm.Id;
+            var title = gvm.Title;
+            await _repo.DeleteAsync(id);
             await LoadGamesAsync();
 
-            SnackbarMessageQueue.Enqueue($"\"{game.Title}\" eliminado.", "DESHACER",
-                async () => await UndoDeleteAsync(game));
+            // Borrado suave: el juego queda en la papelera, así que deshacer es solo restaurarlo
+            SnackbarMessageQueue.Enqueue($"\"{title}\" eliminado.", "DESHACER",
+                async () => await UndoDeleteAsync(id));
         }
 
-        private async Task UndoDeleteAsync(Game game)
+        private async Task UndoDeleteAsync(int id)
         {
-            game.Id = 0; // se reinserta como registro nuevo, con un Id nuevo
-            await _repo.AddAsync(game);
+            await _repo.RestoreAsync(id);
             await LoadGamesAsync();
         }
 
@@ -246,6 +290,17 @@ namespace VideoGameLibrary.ViewModels
 
             await LoadGamesAsync();
             return selected.Count;
+        }
+
+        // Ya lo has comprado: pasa el juego de la lista de deseos a la colección
+        public async Task MoveToCollectionAsync(GameViewModel gvm)
+        {
+            var game = gvm.ToModel();
+            game.IsWishlist = false;
+            await _repo.UpdateAsync(game);
+            await LoadGamesAsync();
+
+            SnackbarMessageQueue.Enqueue($"\"{game.Title}\" movido a la colección.");
         }
     }
 }
