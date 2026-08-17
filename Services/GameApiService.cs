@@ -487,8 +487,9 @@ namespace VideoGameLibrary.Services
         }
 
         // UPC-A (12 dígitos) y EAN-13 (13 dígitos, común en juegos PAL/España) son el mismo
-        // código salvo un "0" inicial — se prueban ambas formas contra cada API
-        private static List<string> GetBarcodeVariants(string barcode)
+        // código salvo un "0" inicial — se prueban ambas formas contra cada API.
+        // internal (no private) solo para poder testearlo desde VideoGameLibrary.Tests.
+        internal static List<string> GetBarcodeVariants(string barcode)
         {
             var variants = new List<string> { barcode };
 
@@ -518,7 +519,8 @@ namespace VideoGameLibrary.Services
 
         // ── Utilidades ────────────────────────────────────────────────────────
 
-        private static int? ExtractYear(string text)
+        // internal (no private) solo para poder testearlo desde VideoGameLibrary.Tests.
+        internal static int? ExtractYear(string text)
         {
             if (string.IsNullOrEmpty(text)) return null;
             var digits = new string(text.Where(char.IsDigit).ToArray());

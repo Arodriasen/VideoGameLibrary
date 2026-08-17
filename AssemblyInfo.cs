@@ -1,4 +1,9 @@
+using System.Runtime.CompilerServices;
 using System.Windows;
+
+// Permite que VideoGameLibrary.Tests vea los miembros "internal" (p.ej. GameApiService.ExtractYear)
+// sin tener que hacerlos públicos de cara a quien use la app como librería.
+[assembly: InternalsVisibleTo("VideoGameLibrary.Tests")]
 
 [assembly:ThemeInfo(
     ResourceDictionaryLocation.None,            //where theme specific resource dictionaries are located
