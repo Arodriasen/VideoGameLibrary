@@ -121,7 +121,7 @@ namespace VideoGameLibrary.ViewModels
             var scoped = _allGames.Where(g => g.IsWishlist == IsWishlistView);
 
             PlatformFilters = RebuildFacet(PlatformFilters, scoped.Select(g => g.Platform));
-            GenreFilters = RebuildFacet(GenreFilters, scoped.Select(g => g.Genre));
+            GenreFilters = RebuildFacet(GenreFilters, scoped.SelectMany(g => SplitGenres(g.Genre)));
             YearFilters = RebuildFacet(YearFilters, scoped.Where(g => g.Year.HasValue).Select(g => g.Year!.Value.ToString()));
             RatingFilters = RebuildRatingFacet(RatingFilters);
         }
@@ -136,6 +136,14 @@ namespace VideoGameLibrary.ViewModels
 
             return result;
         }
+
+        // El género se guarda como un único texto separado por comas (p.ej. "Acción, Aventura, RPG",
+        // así lo devuelven IGDB/RAWG cuando un juego tiene varios géneros) — se separa aquí tanto
+        // para construir la faceta de filtros como para comparar, así "Acción" filtra por igual un
+        // juego que solo tiene ese género y uno que tiene "Acción, Aventura".
+        // internal (no private) para poder testearlo desde VideoGameLibrary.Tests.
+        internal static string[] SplitGenres(string genre) =>
+            genre.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
         private ObservableCollection<FilterOption> RebuildFacet(ObservableCollection<FilterOption> previous, IEnumerable<string> rawValues)
         {
@@ -182,7 +190,7 @@ namespace VideoGameLibrary.ViewModels
             if (selectedPlatforms.Count > 0)
                 filtered = filtered.Where(g => selectedPlatforms.Contains(g.Platform));
             if (selectedGenres.Count > 0)
-                filtered = filtered.Where(g => selectedGenres.Contains(g.Genre));
+                filtered = filtered.Where(g => SplitGenres(g.Genre).Any(selectedGenres.Contains));
             if (selectedYears.Count > 0)
                 filtered = filtered.Where(g => g.Year.HasValue && selectedYears.Contains(g.Year.Value.ToString()));
             if (selectedRatings.Count > 0)
