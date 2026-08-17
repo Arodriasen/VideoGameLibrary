@@ -45,6 +45,21 @@ namespace VideoGameLibrary.Services
 
         public async Task UpdateAsync(Game game)
         {
+            // El DbContext vive durante toda la sesión de la app, así que una edición anterior
+            // del mismo juego puede seguir bajo seguimiento con otra instancia distinta.
+            // Hay que soltarla antes de adjuntar la nueva o EF Core lanza un conflicto de clave.
+            var tracked = _db.ChangeTracker.Entries<Game>()
+                .FirstOrDefault(e => e.Entity.Id == game.Id && e.Entity != game);
+            if (tracked != null)
+                tracked.State = EntityState.Detached;
+
+            // El diálogo de edición no conoce la fecha de alta original (siempre trae el valor
+            // por defecto = ahora); hay que preservarla o cada edición la pisaría con la fecha actual.
+            game.AddedDate = await _db.Games.AsNoTracking()
+                .Where(g => g.Id == game.Id)
+                .Select(g => g.AddedDate)
+                .FirstOrDefaultAsync();
+
             _db.Games.Update(game);
             await _db.SaveChangesAsync();
         }

@@ -16,6 +16,11 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private byte[]? _coverData;
         [ObservableProperty] private string _notes = string.Empty;
         [ObservableProperty] private int _rating;
+        [ObservableProperty] private bool _isSelected;
+
+        // Notifica al MainViewModel para recalcular el contador de seleccionados
+        public Action? OnSelectionChanged { get; set; }
+        partial void OnIsSelectedChanged(bool value) => OnSelectionChanged?.Invoke();
 
         public static GameViewModel FromModel(Game g) => new()
         {

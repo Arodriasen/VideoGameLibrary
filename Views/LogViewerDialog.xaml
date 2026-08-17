@@ -45,7 +45,7 @@
                     Style="{StaticResource MaterialDesignFlatButton}" Margin="0,0,8,0"/>
             <Button Content="LIMPIAR" Click="BtnClear_Click"
                     Style="{StaticResource MaterialDesignFlatButton}" Margin="0,0,8,0"/>
-            <Button Content="CERRAR" Click="BtnClose_Click"
+            <Button Content="CERRAR" Click="BtnClose_Click" IsCancel="True"
                     Style="{StaticResource MaterialDesignRaisedButton}"
                     md:ButtonAssist.CornerRadius="4"/>
         </StackPanel>
