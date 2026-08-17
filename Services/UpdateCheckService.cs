@@ -14,15 +14,22 @@ namespace VideoGameLibrary.Services
     {
         private const string ReleasesApiUrl = "https://api.github.com/repos/Arodriasen/VideoGameLibrary/releases/latest";
 
+        // Instancia compartida (mismo patrón que GameApiService._http) en vez de una nueva por
+        // llamada -- aquí solo se llama una vez al arrancar, pero crear un HttpClient por llamada
+        // es el antipatrón clásico que agota sockets si el código se reutiliza en otro sitio.
+        private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+
+        static UpdateCheckService()
+        {
+            _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("VideoGameLibrary", GetCurrentVersion().ToString()));
+            _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        }
+
         public static async Task<UpdateInfo?> CheckForUpdateAsync()
         {
             try
             {
-                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-                http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("VideoGameLibrary", GetCurrentVersion().ToString()));
-                http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-
-                var response = await http.GetAsync(ReleasesApiUrl);
+                var response = await _http.GetAsync(ReleasesApiUrl);
                 if (!response.IsSuccessStatusCode) return null; // repo sin releases todavía (404) u otro fallo puntual
 
                 var json = await response.Content.ReadAsStringAsync();

@@ -187,8 +187,8 @@ namespace VideoGameLibrary.Services
                 game.CoverData = await DownloadCoverAsync(game.CoverUrl);
         }
 
-        private static string? _igdbToken;
-        private static DateTime _igdbTokenExpiryUtc = DateTime.MinValue;
+        private string? _igdbToken;
+        private DateTime _igdbTokenExpiryUtc = DateTime.MinValue;
 
         private async Task<string?> GetIgdbTokenAsync()
         {

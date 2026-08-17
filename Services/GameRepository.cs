@@ -1,6 +1,8 @@
 using VideoGameLibrary.Data;
 using VideoGameLibrary.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,46 +21,37 @@ namespace VideoGameLibrary.Services
         public GameRepository(GameDbContext db)
         {
             _db = db;
-            _db.Database.EnsureCreated();
-            EnsureRatingColumn();
-            EnsurePlayedColumn();
-            EnsureIsWishlistColumn();
-            EnsureDeletedDateColumn();
+            MigrateDatabase();
             EnsureCollectionSettingsTable();
         }
 
         public void Dispose() => _db.Dispose();
 
-        // Añade la columna Rating a bases de datos creadas antes de introducir el sistema de puntuación
-        private void EnsureRatingColumn()
+        // Aplica las migraciones de EF Core. Las bases de datos creadas con versiones anteriores de la
+        // app (antes de introducir migraciones formales) se generaron con Database.EnsureCreated() y
+        // columnas añadidas a mano por ALTER TABLE -- no tienen la tabla __EFMigrationsHistory. Si se
+        // dejara que Migrate() actuase directamente sobre ellas, intentaría volver a crear la tabla
+        // Games (ya existente, con datos reales) y fallaría. En ese caso se marca la migración inicial
+        // como ya aplicada -- su esquema coincide exactamente con lo que ya hay -- sin ejecutarla; a
+        // partir de ahí Migrate() funciona con normalidad para cualquier migración futura.
+        private void MigrateDatabase()
         {
-            var hasRating = _db.Database.SqlQueryRaw<string>("SELECT name FROM pragma_table_info('Games') WHERE name = 'Rating'").AsEnumerable().Any();
-            if (!hasRating)
-                _db.Database.ExecuteSqlRaw("ALTER TABLE Games ADD COLUMN Rating INTEGER NOT NULL DEFAULT 0");
-        }
+            var historyRepository = _db.GetService<IHistoryRepository>();
 
-        // Añade la columna Played a bases de datos creadas antes de introducir la marca de "jugado"
-        private void EnsurePlayedColumn()
-        {
-            var hasPlayed = _db.Database.SqlQueryRaw<string>("SELECT name FROM pragma_table_info('Games') WHERE name = 'Played'").AsEnumerable().Any();
-            if (!hasPlayed)
-                _db.Database.ExecuteSqlRaw("ALTER TABLE Games ADD COLUMN Played INTEGER NOT NULL DEFAULT 0");
-        }
+            if (!historyRepository.Exists())
+            {
+                var gamesTableExists = _db.Database.SqlQueryRaw<string>(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'Games'").AsEnumerable().Any();
 
-        // Añade la columna IsWishlist a bases de datos creadas antes de introducir la lista de deseos
-        private void EnsureIsWishlistColumn()
-        {
-            var hasIsWishlist = _db.Database.SqlQueryRaw<string>("SELECT name FROM pragma_table_info('Games') WHERE name = 'IsWishlist'").AsEnumerable().Any();
-            if (!hasIsWishlist)
-                _db.Database.ExecuteSqlRaw("ALTER TABLE Games ADD COLUMN IsWishlist INTEGER NOT NULL DEFAULT 0");
-        }
+                if (gamesTableExists)
+                {
+                    var initialMigrationId = _db.GetService<IMigrationsAssembly>().Migrations.Keys.Single();
+                    _db.Database.ExecuteSqlRaw(historyRepository.GetCreateScript());
+                    _db.Database.ExecuteSqlRaw(historyRepository.GetInsertScript(new HistoryRow(initialMigrationId, "8.0.8")));
+                }
+            }
 
-        // Añade la columna DeletedDate a bases de datos creadas antes de introducir la papelera temporal
-        private void EnsureDeletedDateColumn()
-        {
-            var hasDeletedDate = _db.Database.SqlQueryRaw<string>("SELECT name FROM pragma_table_info('Games') WHERE name = 'DeletedDate'").AsEnumerable().Any();
-            if (!hasDeletedDate)
-                _db.Database.ExecuteSqlRaw("ALTER TABLE Games ADD COLUMN DeletedDate TEXT NULL");
+            _db.Database.Migrate();
         }
 
         // Tabla de una sola fila con el nombre visible de la colección (independiente del
@@ -204,6 +197,15 @@ namespace VideoGameLibrary.Services
         public void Vacuum()
         {
             _db.Database.ExecuteSqlRaw("VACUUM");
+        }
+
+        // Copia de seguridad consistente del .db mientras la app lo sigue usando: VACUUM INTO es
+        // el mecanismo nativo de SQLite para esto (usa su propio backup API por debajo), más seguro
+        // que copiar el archivo a nivel de sistema de ficheros con la conexión todavía abierta.
+        // Como efecto secundario también compacta la copia (no el archivo original).
+        public void BackupTo(string destinationPath)
+        {
+            _db.Database.ExecuteSqlRaw("VACUUM INTO {0}", destinationPath);
         }
     }
 }

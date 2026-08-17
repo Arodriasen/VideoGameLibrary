@@ -1,5 +1,7 @@
 # Mi Colección de Juegos
 
+![Build](https://github.com/Arodriasen/VideoGameLibrary/actions/workflows/build.yml/badge.svg)
+
 Aplicación de escritorio para Windows que permite catalogar tu colección personal de videojuegos escaneando el código de barras (UPC/EAN) de la caja. Busca automáticamente título, plataforma, género, año y portada, y guarda todo en una base de datos local (SQLite) en tu propio equipo.
 
 ## Características
@@ -11,8 +13,8 @@ Aplicación de escritorio para Windows que permite catalogar tu colección perso
 - Filtros por plataforma, género, año y puntuación, y ordenación de la colección.
 - Papelera: los juegos eliminados se conservan 7 días antes de borrarse para siempre, con opción de restaurarlos mientras tanto.
 - Estadísticas de la colección (icono de gráfico en la barra inferior).
-- Importación desde Excel/CSV (columnas identificadas por nombre, no por posición) y exportación de la colección a Excel (.xlsx) o CSV — la exportación también sirve como copia de seguridad manual de tus datos.
-- Mantenimiento de la base de datos (compactar/VACUUM) desde Ajustes.
+- Importación desde Excel/CSV (columnas identificadas por nombre, no por posición), con vista previa antes de importar que avisa de duplicados. Exportación de la colección a Excel (.xlsx) o CSV.
+- Copia de seguridad de la base de datos con un clic desde Ajustes, y mantenimiento (compactar/VACUUM).
 - Tema claro/oscuro.
 - Registro de errores dentro de la app (icono ⚠ en la barra de herramientas) para diagnosticar problemas sin depurador.
 - Aviso automático dentro de la app cuando hay una versión más nueva disponible en GitHub, con acceso directo a la descarga.

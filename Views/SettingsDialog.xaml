@@ -97,6 +97,14 @@
                     </StackPanel>
                     <TextBlock TextWrapping="Wrap" Margin="0,6,0,10" FontSize="12"
                                Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Text="Guarda una copia de seguridad de tu colección en el archivo que elijas. Recomendado antes de importar un lote grande o de vez en cuando por si acaso."/>
+                    <Button x:Name="BtnBackup" Content="GUARDAR COPIA DE SEGURIDAD..." Click="BtnBackup_Click"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            HorizontalAlignment="Left" Margin="0,0,0,16"
+                            md:ButtonAssist.CornerRadius="4"/>
+
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="12"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
                                Text="Al borrar un juego, el archivo .db no reduce su tamaño ni elimina físicamente los datos hasta que se compacta. Esto es normal en SQLite y no afecta al funcionamiento de la app, pero puedes compactarlo manualmente cuando quieras."/>
                     <Button x:Name="BtnVacuum" Content="COMPACTAR BASE DE DATOS" Click="BtnVacuum_Click"
                             Style="{StaticResource MaterialDesignOutlinedButton}"

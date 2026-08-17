@@ -116,6 +116,34 @@ namespace VideoGameLibrary.Views
             }
         }
 
+        private void BtnBackup_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new SaveFileDialog
+            {
+                Title = "Guardar copia de seguridad",
+                Filter = "Base de datos (*.db)|*.db",
+                DefaultExt = ".db",
+                FileName = $"{Path.GetFileNameWithoutExtension(App.CurrentDatabasePath)}_backup_{DateTime.Now:yyyyMMdd}.db"
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            try
+            {
+                // VACUUM INTO exige que el archivo destino no exista todavía; SaveFileDialog ya
+                // confirmó con el usuario si quería sobrescribir, así que aquí solo se aplica.
+                if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
+                App.Repository.BackupTo(dlg.FileName);
+                MessageBox.Show($"Copia de seguridad guardada en:\n{dlg.FileName}",
+                    "Guardar copia de seguridad", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                LoggingService.LogError("Guardar copia de seguridad", ex);
+                MessageBox.Show($"No se ha podido guardar la copia de seguridad:\n{ex.Message}",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void BtnVacuum_Click(object sender, RoutedEventArgs e)
         {
             try
