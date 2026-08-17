@@ -186,6 +186,10 @@
                         </md:PackIcon>
                     </Button>
                     <Button Style="{StaticResource MaterialDesignIconButton}"
+                            ToolTip="Estadísticas" Click="BtnStats_Click">
+                        <md:PackIcon Kind="ChartBar" Width="22" Height="22" Foreground="White"/>
+                    </Button>
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
                             ToolTip="Cambiar tema claro/oscuro" Click="BtnToggleTheme_Click">
                         <md:PackIcon x:Name="ThemeIcon" Kind="WeatherNight" Width="22" Height="22" Foreground="White"/>
                     </Button>

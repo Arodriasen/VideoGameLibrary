@@ -16,6 +16,7 @@ namespace VideoGameLibrary.Services
             _db = db;
             _db.Database.EnsureCreated();
             EnsureRatingColumn();
+            EnsurePlayedColumn();
         }
 
         // Añade la columna Rating a bases de datos creadas antes de introducir el sistema de puntuación
@@ -24,6 +25,14 @@ namespace VideoGameLibrary.Services
             var hasRating = _db.Database.SqlQueryRaw<string>("SELECT name FROM pragma_table_info('Games') WHERE name = 'Rating'").AsEnumerable().Any();
             if (!hasRating)
                 _db.Database.ExecuteSqlRaw("ALTER TABLE Games ADD COLUMN Rating INTEGER NOT NULL DEFAULT 0");
+        }
+
+        // Añade la columna Played a bases de datos creadas antes de introducir la marca de "jugado"
+        private void EnsurePlayedColumn()
+        {
+            var hasPlayed = _db.Database.SqlQueryRaw<string>("SELECT name FROM pragma_table_info('Games') WHERE name = 'Played'").AsEnumerable().Any();
+            if (!hasPlayed)
+                _db.Database.ExecuteSqlRaw("ALTER TABLE Games ADD COLUMN Played INTEGER NOT NULL DEFAULT 0");
         }
 
         public async Task<List<Game>> GetAllAsync()

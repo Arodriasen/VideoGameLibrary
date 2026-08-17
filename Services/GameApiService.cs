@@ -48,42 +48,48 @@ namespace VideoGameLibrary.Services
             _theGamesDbApiKey = theGamesDbApiKey;
         }
 
+        // Un código de barras normalmente resuelve a un único producto, pero
+        // en casos raros (reediciones, bundles, colisiones entre tiendas) puede
+        // haber más de un candidato — el llamador decide cómo resolver la ambigüedad.
+        private const int MaxCandidates = 6;
+
         // ── Punto de entrada principal ────────────────────────────────────────
 
-        public async Task<Game?> SearchByBarcodeAsync(string rawBarcode)
+        public async Task<List<Game>> SearchCandidatesByBarcodeAsync(string rawBarcode)
         {
             var barcode = NormalizeBarcode(rawBarcode);
-            if (string.IsNullOrEmpty(barcode)) return null;
+            if (string.IsNullOrEmpty(barcode)) return new List<Game>();
 
             var variants = GetBarcodeVariants(barcode);
+            var candidates = new List<Game>();
 
-            // Fase A — resolución por código de barras, prioridad fija, primer acierto gana
-            Game? game = null;
-
+            // Fase A — resolución por código de barras, prioridad fija: ScanDex primero
             if (!string.IsNullOrEmpty(_scanDexToken))
             {
                 foreach (var variant in variants)
                 {
-                    game = await SearchScanDexAsync(variant);
-                    if (game != null) break;
+                    var game = await SearchScanDexAsync(variant);
+                    if (game != null) { candidates.Add(game); break; }
                 }
             }
 
-            if (game == null)
+            if (candidates.Count == 0)
             {
                 foreach (var variant in variants)
                 {
-                    game = await SearchUpcItemDbAsync(variant);
-                    if (game != null) break;
+                    var items = await SearchUpcItemDbCandidatesAsync(variant);
+                    if (items.Count > 0) { candidates.AddRange(items); break; }
                 }
             }
 
-            if (game == null) return null; // sin match — el usuario rellena a mano
+            // Fase B — enriquecimiento por nombre de cada candidato, solo rellena huecos
+            foreach (var candidate in candidates)
+            {
+                candidate.Barcode = barcode;
+                await EnrichFromNameAsync(candidate);
+            }
 
-            // Fase B — enriquecimiento por nombre, solo rellena huecos, nunca sobrescribe la Fase A
-            await EnrichFromNameAsync(game);
-
-            return game;
+            return candidates;
         }
 
         // ── Fase A: fuentes que aceptan código de barras directamente ──────────
@@ -117,8 +123,9 @@ namespace VideoGameLibrary.Services
             }
         }
 
-        // UPCitemdb — base de datos genérica de códigos de barras, sin registro
-        private async Task<Game?> SearchUpcItemDbAsync(string barcode)
+        // UPCitemdb — base de datos genérica de códigos de barras, sin registro.
+        // Un mismo UPC puede listar varios productos (reediciones, bundles) — se devuelven todos.
+        private async Task<List<Game>> SearchUpcItemDbCandidatesAsync(string barcode)
         {
             try
             {
@@ -127,40 +134,43 @@ namespace VideoGameLibrary.Services
                 var json = JObject.Parse(response);
 
                 var items = json["items"] as JArray;
-                if (items == null || items.Count == 0) return null;
+                if (items == null) return new List<Game>();
 
-                var item = items[0]!;
-                var game = new Game { Barcode = barcode };
+                var result = new List<Game>();
+                foreach (var item in items.Take(MaxCandidates))
+                {
+                    var title = item["title"]?.ToString() ?? string.Empty;
+                    if (string.IsNullOrEmpty(title)) continue;
 
-                game.Title = item["title"]?.ToString() ?? string.Empty;
-
-                var images = item["images"] as JArray;
-                game.CoverUrl = images?.FirstOrDefault()?.ToString() ?? string.Empty;
-
-                return string.IsNullOrEmpty(game.Title) ? null : game;
+                    var images = item["images"] as JArray;
+                    result.Add(new Game
+                    {
+                        Barcode = barcode,
+                        Title = title,
+                        CoverUrl = images?.FirstOrDefault()?.ToString() ?? string.Empty
+                    });
+                }
+                return result;
             }
             catch (Exception ex)
             {
                 LoggingService.LogError($"UPCitemdb — búsqueda por código de barras {barcode}", ex);
-                return null;
+                return new List<Game>();
             }
         }
 
-        // Búsqueda manual por título cuando el código de barras no da resultado
-        // (misma Fase B, pero arrancando desde un juego vacío en vez de uno ya resuelto)
-        public async Task<Game?> SearchByNameAsync(string name)
+        // Búsqueda manual por título cuando el código de barras no da resultado, o desde el
+        // diálogo "Buscar por nombre" — un título puede coincidir con varios juegos distintos.
+        public async Task<List<Game>> SearchByNameCandidatesAsync(string name)
         {
-            if (string.IsNullOrWhiteSpace(name)) return null;
+            if (string.IsNullOrWhiteSpace(name)) return new List<Game>();
 
-            var game = new Game { Title = name.Trim() };
-            await EnrichFromNameAsync(game);
+            var trimmed = name.Trim();
 
-            bool foundAnything = !string.IsNullOrEmpty(game.Platform)
-                || !string.IsNullOrEmpty(game.Genre)
-                || !string.IsNullOrEmpty(game.CoverUrl)
-                || game.Year.HasValue;
+            var fromIgdb = await SearchIgdbCandidatesAsync(trimmed);
+            if (fromIgdb.Count > 0) return fromIgdb;
 
-            return foundAnything ? game : null;
+            return await SearchRawgCandidatesAsync(trimmed);
         }
 
         // ── Fase B: enriquecimiento por nombre, solo rellena huecos ────────────
@@ -276,6 +286,62 @@ namespace VideoGameLibrary.Services
             }
         }
 
+        // IGDB — búsqueda por nombre que devuelve varios candidatos (a diferencia de
+        // EnrichFromIgdbAsync, que solo rellena huecos de un juego ya identificado)
+        private async Task<List<Game>> SearchIgdbCandidatesAsync(string name)
+        {
+            try
+            {
+                var token = await GetIgdbTokenAsync();
+                if (token == null) return new List<Game>();
+
+                var request = new HttpRequestMessage(HttpMethod.Post, "https://api.igdb.com/v4/games");
+                request.Headers.Add("Client-ID", _igdbClientId);
+                request.Headers.Add("Authorization", $"Bearer {token}");
+                request.Content = new StringContent(
+                    $"search \"{name}\"; fields name,cover.url,genres.name,platforms.name,first_release_date; limit {MaxCandidates};");
+
+                var response = await _http.SendAsync(request);
+                if (!response.IsSuccessStatusCode) return new List<Game>();
+
+                var json = JArray.Parse(await response.Content.ReadAsStringAsync());
+                var result = new List<Game>();
+
+                foreach (var item in json)
+                {
+                    var title = item["name"]?.ToString();
+                    if (string.IsNullOrEmpty(title)) continue;
+
+                    var game = new Game { Title = title };
+
+                    var coverUrl = item["cover"]?["url"]?.ToString();
+                    if (!string.IsNullOrEmpty(coverUrl))
+                        game.CoverUrl = "https:" + coverUrl.Replace("t_thumb", "t_cover_big");
+
+                    var genres = item["genres"] as JArray;
+                    if (genres?.Count > 0)
+                        game.Genre = string.Join(", ", genres.Select(g => g["name"]?.ToString() ?? "").Where(n => !string.IsNullOrEmpty(n)));
+
+                    var platforms = item["platforms"] as JArray;
+                    if (platforms?.Count > 0)
+                        game.Platform = string.Join(", ", platforms.Select(p => p["name"]?.ToString() ?? "").Where(n => !string.IsNullOrEmpty(n)));
+
+                    var releaseDate = item["first_release_date"]?.Value<long?>();
+                    if (releaseDate.HasValue)
+                        game.Year = DateTimeOffset.FromUnixTimeSeconds(releaseDate.Value).Year;
+
+                    result.Add(game);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                LoggingService.LogError($"IGDB — búsqueda por nombre \"{name}\"", ex);
+                return new List<Game>();
+            }
+        }
+
         // RAWG — segunda fuente de enriquecimiento por nombre
         private async Task<bool> EnrichFromRawgAsync(Game game)
         {
@@ -332,6 +398,52 @@ namespace VideoGameLibrary.Services
             {
                 LoggingService.LogError($"RAWG — enriquecimiento por nombre \"{game.Title}\"", ex);
                 return false;
+            }
+        }
+
+        // RAWG — búsqueda por nombre que devuelve varios candidatos (fallback si IGDB no da resultados)
+        private async Task<List<Game>> SearchRawgCandidatesAsync(string name)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_rawgApiKey)) return new List<Game>();
+
+                var url = $"https://api.rawg.io/api/games?search={Uri.EscapeDataString(name)}&key={_rawgApiKey}&page_size={MaxCandidates}";
+                var response = await _http.GetStringAsync(url);
+                var json = JObject.Parse(response);
+
+                var results = json["results"] as JArray;
+                if (results == null) return new List<Game>();
+
+                var list = new List<Game>();
+                foreach (var item in results)
+                {
+                    var title = item["name"]?.ToString();
+                    if (string.IsNullOrEmpty(title)) continue;
+
+                    var game = new Game { Title = title };
+
+                    var image = item["background_image"]?.ToString();
+                    if (!string.IsNullOrEmpty(image)) game.CoverUrl = image;
+
+                    var genres = item["genres"] as JArray;
+                    if (genres?.Count > 0)
+                        game.Genre = string.Join(", ", genres.Select(g => g["name"]?.ToString() ?? "").Where(n => !string.IsNullOrEmpty(n)));
+
+                    var platforms = item["platforms"] as JArray;
+                    if (platforms?.Count > 0)
+                        game.Platform = string.Join(", ", platforms.Select(p => p["platform"]?["name"]?.ToString() ?? "").Where(n => !string.IsNullOrEmpty(n)));
+
+                    game.Year = ExtractYear(item["released"]?.ToString() ?? "");
+
+                    list.Add(game);
+                }
+                return list;
+            }
+            catch (Exception ex)
+            {
+                LoggingService.LogError($"RAWG — búsqueda por nombre \"{name}\"", ex);
+                return new List<Game>();
             }
         }
 

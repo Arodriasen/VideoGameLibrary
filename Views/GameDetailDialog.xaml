@@ -13,6 +13,7 @@
         <conv:ByteArrayToImageConverter x:Key="ByteToImg"/>
         <conv:NullToVisibilityConverter x:Key="NullToVis"/>
         <conv:RatingToStarKindConverter x:Key="RatingToStar"/>
+        <conv:BoolToYesNoConverter x:Key="PlayedToText"/>
     </Window.Resources>
 
     <Grid Margin="24">
@@ -69,6 +70,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Plataforma" FontWeight="Medium" Margin="0,0,0,8" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
@@ -85,6 +87,9 @@
 
                     <TextBlock Grid.Row="4" Grid.Column="0" Text="Código de barras" FontWeight="Medium" Margin="0,0,0,8" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
                     <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Barcode}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Jugado" FontWeight="Medium" Margin="0,0,0,8" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Played, Converter={StaticResource PlayedToText}}" Margin="0,0,0,8"/>
                 </Grid>
 
                 <StackPanel Margin="0,8,0,0">

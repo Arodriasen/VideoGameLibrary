@@ -16,6 +16,7 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private byte[]? _coverData;
         [ObservableProperty] private string _notes = string.Empty;
         [ObservableProperty] private int _rating;
+        [ObservableProperty] private bool _played;
         [ObservableProperty] private bool _isSelected;
 
         // Notifica al MainViewModel para recalcular el contador de seleccionados
@@ -34,7 +35,8 @@ namespace VideoGameLibrary.ViewModels
             CoverUrl = g.CoverUrl,
             CoverData = g.CoverData,
             Notes = g.Notes,
-            Rating = g.Rating
+            Rating = g.Rating,
+            Played = g.Played
         };
 
         public Game ToModel() => new()
@@ -49,7 +51,8 @@ namespace VideoGameLibrary.ViewModels
             CoverUrl = CoverUrl,
             CoverData = CoverData,
             Notes = Notes,
-            Rating = Rating
+            Rating = Rating,
+            Played = Played
         };
     }
 }

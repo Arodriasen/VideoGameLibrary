@@ -1,6 +1,9 @@
+using VideoGameLibrary.Models;
 using VideoGameLibrary.ViewModels;
 using Microsoft.Win32;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -15,7 +18,15 @@ namespace VideoGameLibrary.Views
             InitializeComponent();
             DataContext = vm;
             vm.CloseDialog = () => DialogResult = vm.Saved;
+            vm.PickCandidate = ShowCandidatePickerAsync;
             Loaded += (_, _) => TxtBarcode.Focus();
+        }
+
+        private Task<Game?> ShowCandidatePickerAsync(List<Game> candidates)
+        {
+            var dialog = new GameCandidatePickerDialog(candidates) { Owner = this };
+            var result = dialog.ShowDialog();
+            return Task.FromResult(result == true ? dialog.SelectedGame : null);
         }
 
         private void TxtBarcode_KeyDown(object sender, KeyEventArgs e)

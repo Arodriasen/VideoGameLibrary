@@ -61,6 +61,9 @@ namespace VideoGameLibrary.ViewModels
 
         public ISnackbarMessageQueue SnackbarMessageQueue { get; } = new SnackbarMessageQueue(TimeSpan.FromSeconds(3));
 
+        // La View resuelve la ambigüedad mostrando un selector; null si el usuario cancela
+        public Func<List<Game>, Task<Game?>>? PickCandidate { get; set; }
+
         public MainViewModel(GameRepository repo, GameApiService api)
         {
             _repo = repo;
@@ -182,11 +185,22 @@ namespace VideoGameLibrary.ViewModels
                 return;
             }
 
-            var game = await _api.SearchByBarcodeAsync(barcode);
-            if (game == null)
+            var candidates = await _api.SearchCandidatesByBarcodeAsync(barcode);
+            if (candidates.Count == 0)
             {
                 SnackbarMessageQueue.Enqueue($"Código {barcode} no encontrado. Añádelo manualmente.");
                 return;
+            }
+
+            Game? game = candidates[0];
+            if (candidates.Count > 1)
+            {
+                game = PickCandidate != null ? await PickCandidate(candidates) : candidates[0];
+                if (game == null)
+                {
+                    SnackbarMessageQueue.Enqueue("Selección cancelada.");
+                    return;
+                }
             }
 
             if (!string.IsNullOrEmpty(game.CoverUrl) && game.CoverData == null)

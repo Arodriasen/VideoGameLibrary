@@ -1,8 +1,11 @@
+using VideoGameLibrary.Models;
 using VideoGameLibrary.Services;
 using VideoGameLibrary.ViewModels;
 using VideoGameLibrary.Views;
 using MaterialDesignThemes.Wpf;
 using Microsoft.Win32;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -18,11 +21,19 @@ namespace VideoGameLibrary
             InitializeComponent();
             DataContext = vm;
             UpdateThemeIcon();
+            vm.PickCandidate = ShowCandidatePickerAsync;
             Loaded += async (_, _) =>
             {
                 await vm.LoadGamesAsync();
                 TxtQuickScan.Focus();
             };
+        }
+
+        private Task<Game?> ShowCandidatePickerAsync(List<Game> candidates)
+        {
+            var dialog = new GameCandidatePickerDialog(candidates) { Owner = this };
+            var result = dialog.ShowDialog();
+            return Task.FromResult(result == true ? dialog.SelectedGame : null);
         }
 
         private async void TxtQuickScan_KeyDown(object sender, KeyEventArgs e)
@@ -62,6 +73,12 @@ namespace VideoGameLibrary
         private void BtnLog_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new LogViewerDialog { Owner = this };
+            dialog.ShowDialog();
+        }
+
+        private void BtnStats_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new StatsDialog(new StatsViewModel(App.Repository)) { Owner = this };
             dialog.ShowDialog();
         }
 
