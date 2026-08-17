@@ -26,6 +26,7 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private int _playedCount;
         [ObservableProperty] private int _notPlayedCount;
         [ObservableProperty] private string _playedPercentageText = string.Empty;
+        [ObservableProperty] private int _wishlistCount;
 
         public ObservableCollection<StatsRow> ByPlatform { get; } = new();
         public ObservableCollection<StatsRow> ByGenre { get; } = new();
@@ -39,7 +40,11 @@ namespace VideoGameLibrary.ViewModels
         {
             IsLoading = true;
 
-            var games = await _repo.GetAllAsync();
+            var allGames = await _repo.GetAllAsync();
+            WishlistCount = allGames.Count(g => g.IsWishlist);
+
+            // Las estadísticas de la colección no mezclan juegos que aún no tienes (lista de deseos)
+            var games = allGames.Where(g => !g.IsWishlist).ToList();
 
             TotalGames = games.Count;
             PlayedCount = games.Count(g => g.Played);

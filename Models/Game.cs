@@ -18,6 +18,8 @@ namespace VideoGameLibrary.Models
         public string Notes { get; set; } = string.Empty;
         public int Rating { get; set; }
         public bool Played { get; set; }
+        public bool IsWishlist { get; set; }
         public DateTime AddedDate { get; set; } = DateTime.Now;
+        public DateTime? DeletedDate { get; set; }
     }
 }

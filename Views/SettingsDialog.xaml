@@ -49,6 +49,45 @@
                          md:HintAssist.Hint="TheGamesDB API Key"
                          Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
 
+                <Separator x:Name="SwitchDbSeparator" Margin="0,24,0,0"/>
+
+                <StackPanel x:Name="SwitchDbSection" Margin="0,16,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <md:PackIcon Kind="DatabaseSyncOutline" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Colección" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Text="Nombre visible de la colección" FontSize="11" FontWeight="Medium"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,10,0,4"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtCollectionName" Grid.Column="0" Margin="0,0,8,0"
+                                 md:HintAssist.Hint="p. ej. Mis juegos de PS5"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                        <Button Grid.Column="1" Content="GUARDAR" Click="BtnSaveCollectionName_Click"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                md:ButtonAssist.CornerRadius="4"/>
+                    </Grid>
+                    <TextBlock TextWrapping="Wrap" Margin="0,4,0,16" FontSize="11"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Text="Solo cambia cómo se ve dentro de la app — no afecta al archivo .db."/>
+
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="12"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Text="Abre otra colección existente (.db) o crea una nueva, sin cerrar la app."/>
+                    <Button x:Name="BtnSwitchDatabase" Content="ABRIR OTRA COLECCIÓN..." Click="BtnSwitchDatabase_Click"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            HorizontalAlignment="Left" Margin="0,0,0,8"
+                            md:ButtonAssist.CornerRadius="4"/>
+                    <Button x:Name="BtnRenameDbFile" Content="RENOMBRAR ARCHIVO .DB..." Click="BtnRenameDbFile_Click"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            HorizontalAlignment="Left"
+                            md:ButtonAssist.CornerRadius="4"/>
+                </StackPanel>
+
                 <Separator x:Name="MaintenanceSeparator" Margin="0,24,0,0"/>
 
                 <StackPanel x:Name="MaintenanceSection" Margin="0,16,0,0">
@@ -60,6 +99,29 @@
                                Foreground="{DynamicResource MaterialDesignBodyLight}"
                                Text="Al borrar un juego, el archivo .db no reduce su tamaño ni elimina físicamente los datos hasta que se compacta. Esto es normal en SQLite y no afecta al funcionamiento de la app, pero puedes compactarlo manualmente cuando quieras."/>
                     <Button x:Name="BtnVacuum" Content="COMPACTAR BASE DE DATOS" Click="BtnVacuum_Click"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            HorizontalAlignment="Left"
+                            md:ButtonAssist.CornerRadius="4"/>
+                </StackPanel>
+
+                <Separator x:Name="ImportSeparator" Margin="0,24,0,0"/>
+
+                <StackPanel x:Name="ImportSection" Margin="0,16,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <md:PackIcon Kind="FileImportOutline" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Importar colección" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock TextWrapping="Wrap" Margin="0,6,0,8" FontSize="12"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Text="Importa juegos desde un CSV (separado por punto y coma) o Excel (.xlsx) con una fila de cabecera. Las columnas se identifican por su nombre, así que pueden ir en cualquier orden y omitirse las que no uses. Solo &quot;Título&quot; es obligatoria:"/>
+                    <Border Background="{DynamicResource MaterialDesignChipBackground}" CornerRadius="4" Padding="8" Margin="0,0,0,8">
+                        <TextBlock TextWrapping="Wrap" FontSize="11" FontFamily="Consolas"
+                                   Text="Código de Barras · Título · Plataforma · Editorial · Género · Año · Puntuación · Notas · Jugado"/>
+                    </Border>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="11"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Text="Puntuación: número del 0 al 5. Jugado: Sí/No. Un código de barras que ya exista en la colección se omite (no se duplica)."/>
+                    <Button x:Name="BtnImport" Content="IMPORTAR DESDE CSV/EXCEL" Click="BtnImport_Click"
                             Style="{StaticResource MaterialDesignOutlinedButton}"
                             HorizontalAlignment="Left"
                             md:ButtonAssist.CornerRadius="4"/>

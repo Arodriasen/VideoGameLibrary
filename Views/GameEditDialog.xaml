@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:conv="clr-namespace:VideoGameLibrary.Converters"
-        Title="{Binding DialogTitle}" Height="730" Width="480"
+        Title="{Binding DialogTitle}" Height="765" Width="480"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{DynamicResource MaterialDesignPaper}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
@@ -143,7 +143,8 @@
                     </Button>
                 </StackPanel>
 
-                <CheckBox Content="Ya lo he jugado" IsChecked="{Binding Played}" Margin="0,0,0,12"/>
+                <CheckBox Content="Jugado" IsChecked="{Binding Played}" Margin="0,0,0,8"/>
+                <CheckBox Content="Wishlist" IsChecked="{Binding IsWishlist}" Margin="0,0,0,12"/>
 
                 <TextBox Margin="0,0,0,0"
                          md:HintAssist.Hint="Notas personales"
@@ -157,7 +158,7 @@
         <!-- Buscando indicator -->
         <ProgressBar Grid.Row="1" IsIndeterminate="True" Height="3"
                      VerticalAlignment="Bottom" Margin="0,0,0,-8"
-                     Visibility="{Binding IsSearching, Converter={StaticResource NullToVis}}"/>
+                     Visibility="{Binding IsSearching, Converter={StaticResource BoolToVis}}"/>
 
         <!-- Botones -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
