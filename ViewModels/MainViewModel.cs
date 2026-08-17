@@ -32,6 +32,7 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private ObservableCollection<FilterOption> _genreFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _yearFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _ratingFilters = new();
+        [ObservableProperty] private bool _onlyMissingCover;
 
         [ObservableProperty] private string _sortOption = "Título (A-Z)";
 
@@ -98,6 +99,7 @@ namespace VideoGameLibrary.ViewModels
 
         partial void OnSearchTextChanged(string value) => ApplyFilters();
         partial void OnSortOptionChanged(string value) => ApplyFilters();
+        partial void OnOnlyMissingCoverChanged(bool value) => ApplyFilters();
 
         [RelayCommand]
         public async Task LoadGamesAsync()
@@ -154,6 +156,7 @@ namespace VideoGameLibrary.ViewModels
             foreach (var f in GenreFilters) f.IsSelected = false;
             foreach (var f in YearFilters) f.IsSelected = false;
             foreach (var f in RatingFilters) f.IsSelected = false;
+            OnlyMissingCover = false;
         }
 
         private void ApplyFilters()
@@ -184,6 +187,8 @@ namespace VideoGameLibrary.ViewModels
                 filtered = filtered.Where(g => g.Year.HasValue && selectedYears.Contains(g.Year.Value.ToString()));
             if (selectedRatings.Count > 0)
                 filtered = filtered.Where(g => selectedRatings.Contains(g.Rating));
+            if (OnlyMissingCover)
+                filtered = filtered.Where(g => g.CoverData == null || g.CoverData.Length == 0);
 
             IEnumerable<Game> ordered = SortOption switch
             {
@@ -282,14 +287,24 @@ namespace VideoGameLibrary.ViewModels
             await LoadGamesAsync();
         }
 
-        public async Task<int> DeleteSelectedAsync()
+        // Borrado suave igual que DeleteGameAsync: los seleccionados quedan en la papelera,
+        // así que se puede deshacer devolviendo sus ids a UndoDeleteSelectedAsync.
+        public async Task<List<int>> DeleteSelectedAsync()
         {
-            var selected = Games.Where(g => g.IsSelected).ToList();
-            foreach (var g in selected)
-                await _repo.DeleteAsync(g.Id);
+            var ids = Games.Where(g => g.IsSelected).Select(g => g.Id).ToList();
+            foreach (var id in ids)
+                await _repo.DeleteAsync(id);
 
             await LoadGamesAsync();
-            return selected.Count;
+            return ids;
+        }
+
+        public async Task UndoDeleteSelectedAsync(List<int> ids)
+        {
+            foreach (var id in ids)
+                await _repo.RestoreAsync(id);
+
+            await LoadGamesAsync();
         }
 
         // Ya lo has comprado: pasa el juego de la lista de deseos a la colección

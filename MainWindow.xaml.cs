@@ -280,19 +280,15 @@ namespace VideoGameLibrary
 
         private async void BtnDeleteSelected_Click(object sender, RoutedEventArgs e)
         {
-            var count = Vm.SelectedCount;
-            if (count == 0) return;
-
-            var result = MessageBox.Show(
-                $"¿Eliminar {count} juego(s) seleccionado(s)? Esta acción no se puede deshacer.",
-                "Confirmar eliminación", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-
-            if (result != MessageBoxResult.Yes) return;
+            if (Vm.SelectedCount == 0) return;
 
             try
             {
-                var deleted = await Vm.DeleteSelectedAsync();
-                Vm.SnackbarMessageQueue.Enqueue($"{deleted} juego(s) eliminado(s).");
+                // Borrado suave, igual que un juego individual: van a la papelera (7 días) y se
+                // pueden deshacer desde el propio snackbar, sin diálogo de confirmación bloqueante.
+                var ids = await Vm.DeleteSelectedAsync();
+                Vm.SnackbarMessageQueue.Enqueue($"{ids.Count} juego(s) eliminado(s).", "DESHACER",
+                    async () => await Vm.UndoDeleteSelectedAsync(ids));
             }
             catch (Exception ex)
             {

@@ -1,6 +1,7 @@
 using VideoGameLibrary.Models;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using ClosedXML.Excel;
 
@@ -9,51 +10,45 @@ namespace VideoGameLibrary.Services
     public enum ImportItemStatus { Nuevo, YaExiste, DuplicadoEnArchivo }
 
     // Lee un CSV (separado por ";", mismo formato que ExportService) o un Excel (.xlsx)
-    // con una fila de cabecera. Las columnas se identifican por nombre (no por posición),
-    // así que el usuario puede omitir u ordenar las columnas como quiera.
+    // con una fila de cabecera. Qué columna del archivo corresponde a qué campo lo decide
+    // el usuario en ImportColumnMappingDialog — con una sugerencia automática por nombre de
+    // cabecera (GuessMapping) como punto de partida, así funciona igual de bien con archivos
+    // que exporta esta misma app y con archivos de otras apps que usen otros nombres de columna.
     // Única columna obligatoria: "Título".
     public class ImportService
     {
-        private static readonly string[] RecognizedHeaders =
+        // Clave interna, etiqueta visible, y si es obligatorio para poder importar la fila.
+        public static readonly (string Key, string Label, bool Required)[] Fields =
         {
-            "código de barras", "título", "plataforma", "editorial", "género", "año", "puntuación", "notas", "jugado"
+            ("código de barras", "Código de Barras", false),
+            ("título", "Título", true),
+            ("plataforma", "Plataforma", false),
+            ("editorial", "Editorial", false),
+            ("género", "Género", false),
+            ("año", "Año", false),
+            ("puntuación", "Puntuación", false),
+            ("notas", "Notas", false),
+            ("jugado", "Jugado", false),
         };
 
-        public static IReadOnlyList<string> HeaderNames => RecognizedHeaders;
-
-        public List<Game> ParseFile(string filePath)
+        public List<string> ReadHeaders(string filePath)
         {
             return Path.GetExtension(filePath).Equals(".csv", System.StringComparison.OrdinalIgnoreCase)
-                ? ParseCsv(filePath)
-                : ParseExcel(filePath);
+                ? ReadCsvHeaders(filePath)
+                : ReadExcelHeaders(filePath);
         }
 
-        private List<Game> ParseCsv(string filePath)
+        private static List<string> ReadCsvHeaders(string filePath)
         {
-            var result = new List<Game>();
             var lines = File.ReadAllLines(filePath, Encoding.UTF8);
-            if (lines.Length == 0) return result;
+            if (lines.Length == 0) return new List<string>();
 
             int start = lines[0].TrimStart().StartsWith("sep=", System.StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-            if (start >= lines.Length) return result;
-
-            var map = BuildHeaderMap(SplitCsvLine(lines[start]));
-            if (!map.ContainsKey("título")) return result;
-
-            for (int i = start + 1; i < lines.Length; i++)
-            {
-                if (string.IsNullOrWhiteSpace(lines[i])) continue;
-                var fields = SplitCsvLine(lines[i]);
-                var game = BuildGame(field => GetField(fields, map, field));
-                if (game != null) result.Add(game);
-            }
-
-            return result;
+            return start < lines.Length ? SplitCsvLine(lines[start]) : new List<string>();
         }
 
-        private List<Game> ParseExcel(string filePath)
+        private static List<string> ReadExcelHeaders(string filePath)
         {
-            var result = new List<Game>();
             using var workbook = new XLWorkbook(filePath);
             var sheet = workbook.Worksheets.First();
 
@@ -61,23 +56,80 @@ namespace VideoGameLibrary.Services
             var headers = new List<string>();
             for (int col = 1; col <= lastCol; col++)
                 headers.Add(sheet.Cell(1, col).GetString());
+            return headers;
+        }
 
-            var map = BuildHeaderMap(headers);
-            if (!map.ContainsKey("título")) return result;
-
-            var lastRow = sheet.LastRowUsed()?.RowNumber() ?? 1;
-            for (int row = 2; row <= lastRow; row++)
+        // Sugerencia automática: empareja cabeceras cuyo texto coincide exactamente (sin
+        // mayúsculas) con una de las claves reconocidas. El usuario la confirma o la corrige
+        // a mano en ImportColumnMappingDialog antes de importar nada.
+        public static Dictionary<string, int> GuessMapping(List<string> headers)
+        {
+            var map = new Dictionary<string, int>();
+            for (int i = 0; i < headers.Count; i++)
             {
-                int currentRow = row;
-                var game = BuildGame(field =>
-                    map.TryGetValue(field, out var col) ? sheet.Cell(currentRow, col + 1).GetString() : null);
+                var key = headers[i].Trim().ToLowerInvariant();
+                if (Fields.Any(f => f.Key == key) && !map.ContainsKey(key))
+                    map[key] = i;
+            }
+            return map;
+        }
+
+        // mapping: clave de campo (p.ej. "título") -> índice de columna en el archivo (0-based).
+        // Los campos ausentes del diccionario se dejan vacíos.
+        public List<Game> ParseFile(string filePath, Dictionary<string, int> mapping)
+        {
+            return Path.GetExtension(filePath).Equals(".csv", System.StringComparison.OrdinalIgnoreCase)
+                ? ParseCsv(filePath, mapping)
+                : ParseExcel(filePath, mapping);
+        }
+
+        // Atajo cuando no hace falta preguntar al usuario: adivina el mapeo por nombre de
+        // cabecera y parsea directamente. Útil para archivos ya generados por esta misma app.
+        public List<Game> ParseFile(string filePath)
+            => ParseFile(filePath, GuessMapping(ReadHeaders(filePath)));
+
+        private List<Game> ParseCsv(string filePath, Dictionary<string, int> mapping)
+        {
+            var result = new List<Game>();
+            var lines = File.ReadAllLines(filePath, Encoding.UTF8);
+            if (lines.Length == 0) return result;
+
+            int start = lines[0].TrimStart().StartsWith("sep=", System.StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            if (start >= lines.Length) return result;
+            if (!mapping.ContainsKey("título")) return result;
+
+            for (int i = start + 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var fields = SplitCsvLine(lines[i]);
+                var game = BuildGame(field => GetField(fields, mapping, field));
                 if (game != null) result.Add(game);
             }
 
             return result;
         }
 
-        // ── Construcción de un Game a partir de un lector de campos por nombre de columna ──
+        private List<Game> ParseExcel(string filePath, Dictionary<string, int> mapping)
+        {
+            var result = new List<Game>();
+            using var workbook = new XLWorkbook(filePath);
+            var sheet = workbook.Worksheets.First();
+
+            if (!mapping.ContainsKey("título")) return result;
+
+            var lastRow = sheet.LastRowUsed()?.RowNumber() ?? 1;
+            for (int row = 2; row <= lastRow; row++)
+            {
+                int currentRow = row;
+                var game = BuildGame(field =>
+                    mapping.TryGetValue(field, out var col) ? sheet.Cell(currentRow, col + 1).GetString() : null);
+                if (game != null) result.Add(game);
+            }
+
+            return result;
+        }
+
+        // ── Construcción de un Game a partir de un lector de campos por clave de campo ──
 
         private static Game? BuildGame(System.Func<string, string?> field)
         {
@@ -153,22 +205,8 @@ namespace VideoGameLibrary.Services
         private static string TitleKey(string title, string platform) =>
             $"{title.Trim().ToLowerInvariant()}|{platform.Trim().ToLowerInvariant()}";
 
-        // ── Cabeceras: se identifican por nombre, no por posición ──────────────
-
-        private static Dictionary<string, int> BuildHeaderMap(List<string> headers)
-        {
-            var map = new Dictionary<string, int>();
-            for (int i = 0; i < headers.Count; i++)
-            {
-                var key = headers[i].Trim().ToLowerInvariant();
-                if (!string.IsNullOrEmpty(key) && !map.ContainsKey(key))
-                    map[key] = i;
-            }
-            return map;
-        }
-
-        private static string? GetField(List<string> fields, Dictionary<string, int> map, string header)
-            => map.TryGetValue(header, out var idx) && idx < fields.Count ? fields[idx] : null;
+        private static string? GetField(List<string> fields, Dictionary<string, int> mapping, string fieldKey)
+            => mapping.TryGetValue(fieldKey, out var idx) && idx < fields.Count ? fields[idx] : null;
 
         // ── CSV: separado por ";", con comillas dobles para escapar (mismo formato que ExportService) ──
 

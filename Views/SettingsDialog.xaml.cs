@@ -205,7 +205,21 @@ namespace VideoGameLibrary.Views
 
             try
             {
-                var parsed = new ImportService().ParseFile(dlg.FileName);
+                var importer = new ImportService();
+                var headers = importer.ReadHeaders(dlg.FileName);
+                if (headers.Count == 0)
+                {
+                    MessageBox.Show(
+                        "No se ha podido leer ninguna cabecera de columna en el archivo.",
+                        "Importar colección", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var guessed = ImportService.GuessMapping(headers);
+                var mappingDlg = new ImportColumnMappingDialog(headers, guessed) { Owner = this };
+                if (mappingDlg.ShowDialog() != true) return;
+
+                var parsed = importer.ParseFile(dlg.FileName, mappingDlg.Mapping);
 
                 if (parsed.Count == 0)
                 {
