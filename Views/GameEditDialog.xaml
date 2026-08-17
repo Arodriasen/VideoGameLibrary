@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:conv="clr-namespace:VideoGameLibrary.Converters"
-        Title="{Binding DialogTitle}" Height="690" Width="480"
+        Title="{Binding DialogTitle}" Height="730" Width="480"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{DynamicResource MaterialDesignPaper}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
@@ -13,6 +13,7 @@
         <conv:ByteArrayToImageConverter x:Key="ByteToImg"/>
         <conv:NullToVisibilityConverter x:Key="NullToVis"/>
         <conv:RatingToStarKindConverter x:Key="RatingToStar"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
     </Window.Resources>
 
     <Grid Margin="24">
@@ -23,15 +24,21 @@
         </Grid.RowDefinitions>
 
         <!-- Header código de barras -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
-            <TextBox x:Name="TxtBarcode" Width="260" Margin="0,0,8,0"
-                     md:HintAssist.Hint="Código de barras (UPC/EAN) - escanear o escribir"
-                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                     Text="{Binding Barcode, UpdateSourceTrigger=PropertyChanged}"
-                     KeyDown="TxtBarcode_KeyDown"/>
-            <Button Content="BUSCAR" Command="{Binding SearchCommand}"
-                    Style="{StaticResource MaterialDesignRaisedButton}"
-                    md:ButtonAssist.CornerRadius="4"/>
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+                <TextBox x:Name="TxtBarcode" Width="260" Margin="0,0,8,0"
+                         md:HintAssist.Hint="Código de barras (UPC/EAN) - escanear o escribir"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         Text="{Binding Barcode, UpdateSourceTrigger=PropertyChanged}"
+                         KeyDown="TxtBarcode_KeyDown"/>
+                <Button Content="BUSCAR" Command="{Binding SearchCommand}"
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        md:ButtonAssist.CornerRadius="4"/>
+            </StackPanel>
+            <Button Content="ELEGIR OTRO RESULTADO" Command="{Binding PickAgainCommand}"
+                    Style="{StaticResource MaterialDesignFlatButton}" FontSize="11"
+                    Padding="4,2" Margin="0,4,0,0" HorizontalAlignment="Left"
+                    Visibility="{Binding CanPickAgain, Converter={StaticResource BoolToVis}}"/>
         </StackPanel>
 
         <!-- Contenido -->
@@ -135,6 +142,8 @@
                                      Kind="{Binding Rating, Converter={StaticResource RatingToStar}, ConverterParameter=5}"/>
                     </Button>
                 </StackPanel>
+
+                <CheckBox Content="Ya lo he jugado" IsChecked="{Binding Played}" Margin="0,0,0,12"/>
 
                 <TextBox Margin="0,0,0,0"
                          md:HintAssist.Hint="Notas personales"

@@ -17,6 +17,7 @@ namespace VideoGameLibrary.Models
         public byte[]? CoverData { get; set; }
         public string Notes { get; set; } = string.Empty;
         public int Rating { get; set; }
+        public bool Played { get; set; }
         public DateTime AddedDate { get; set; } = DateTime.Now;
     }
 }

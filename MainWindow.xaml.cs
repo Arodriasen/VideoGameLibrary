@@ -1,8 +1,11 @@
+using VideoGameLibrary.Models;
 using VideoGameLibrary.Services;
 using VideoGameLibrary.ViewModels;
 using VideoGameLibrary.Views;
 using MaterialDesignThemes.Wpf;
 using Microsoft.Win32;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -18,6 +21,7 @@ namespace VideoGameLibrary
             InitializeComponent();
             DataContext = vm;
             UpdateThemeIcon();
+            vm.PickCandidate = ShowCandidatePickerAsync;
             Loaded += async (_, _) =>
             {
                 await vm.LoadGamesAsync();
@@ -25,11 +29,28 @@ namespace VideoGameLibrary
             };
         }
 
+        private Task<Game?> ShowCandidatePickerAsync(List<Game> candidates)
+        {
+            var dialog = new GameCandidatePickerDialog(candidates) { Owner = this };
+            var result = dialog.ShowDialog();
+            return Task.FromResult(result == true ? dialog.SelectedGame : null);
+        }
+
         private async void TxtQuickScan_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key != Key.Enter) return;
             await Vm.QuickAddByBarcodeAsync();
             TxtQuickScan.Focus();
+        }
+
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                TxtSearch.Focus();
+                TxtSearch.SelectAll();
+                e.Handled = true;
+            }
         }
 
         private void BtnToggleTheme_Click(object sender, RoutedEventArgs e)
@@ -52,6 +73,12 @@ namespace VideoGameLibrary
         private void BtnLog_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new LogViewerDialog { Owner = this };
+            dialog.ShowDialog();
+        }
+
+        private void BtnStats_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new StatsDialog(new StatsViewModel(App.Repository)) { Owner = this };
             dialog.ShowDialog();
         }
 
@@ -104,14 +131,6 @@ namespace VideoGameLibrary
         {
             if (((Button)sender).Tag is not ViewModels.GameViewModel gvm) return;
 
-            var result = MessageBox.Show(
-                $"¿Eliminar \"{gvm.Title}\" de la colección?",
-                "Confirmar eliminación",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result != MessageBoxResult.Yes) return;
-
             try
             {
                 await Vm.DeleteGameAsync(gvm);
@@ -124,15 +143,19 @@ namespace VideoGameLibrary
             }
         }
 
-        private void BtnExport_Click(object sender, RoutedEventArgs e)
+        private void BtnExport_Click(object sender, RoutedEventArgs e) => ShowExportMenu(sender, selectionOnly: false);
+
+        private void BtnExportSelected_Click(object sender, RoutedEventArgs e) => ShowExportMenu(sender, selectionOnly: true);
+
+        private void ShowExportMenu(object sender, bool selectionOnly)
         {
             var menu = new ContextMenu();
 
             var itemExcel = new MenuItem { Header = "Exportar a Excel (.xlsx)" };
-            itemExcel.Click += async (_, _) => await ExportAsync("xlsx");
+            itemExcel.Click += async (_, _) => await ExportAsync("xlsx", selectionOnly);
 
             var itemCsv = new MenuItem { Header = "Exportar a CSV" };
-            itemCsv.Click += async (_, _) => await ExportAsync("csv");
+            itemCsv.Click += async (_, _) => await ExportAsync("csv", selectionOnly);
 
             menu.Items.Add(itemExcel);
             menu.Items.Add(itemCsv);
@@ -140,7 +163,7 @@ namespace VideoGameLibrary
             menu.IsOpen = true;
         }
 
-        private async System.Threading.Tasks.Task ExportAsync(string format)
+        private async System.Threading.Tasks.Task ExportAsync(string format, bool selectionOnly)
         {
             var dlg = new SaveFileDialog();
 
@@ -157,7 +180,10 @@ namespace VideoGameLibrary
 
             if (dlg.ShowDialog() != true) return;
 
-            var games = await App.Repository.GetAllAsync();
+            var games = selectionOnly
+                ? Vm.Games.Where(g => g.IsSelected).Select(g => g.ToModel()).ToList()
+                : await App.Repository.GetAllAsync();
+
             var exporter = new Services.ExportService();
 
             if (format == "xlsx")
@@ -167,6 +193,30 @@ namespace VideoGameLibrary
 
             MessageBox.Show($"Exportación completada: {dlg.FileName}",
                 "Exportar", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private async void BtnDeleteSelected_Click(object sender, RoutedEventArgs e)
+        {
+            var count = Vm.SelectedCount;
+            if (count == 0) return;
+
+            var result = MessageBox.Show(
+                $"¿Eliminar {count} juego(s) seleccionado(s)? Esta acción no se puede deshacer.",
+                "Confirmar eliminación", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes) return;
+
+            try
+            {
+                var deleted = await Vm.DeleteSelectedAsync();
+                Vm.SnackbarMessageQueue.Enqueue($"{deleted} juego(s) eliminado(s).");
+            }
+            catch (Exception ex)
+            {
+                LoggingService.LogError("Eliminar juegos seleccionados", ex);
+                MessageBox.Show($"Error al eliminar los juegos:\n{ex.Message}",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }

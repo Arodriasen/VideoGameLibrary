@@ -16,6 +16,7 @@ namespace VideoGameLibrary.Services
             _db = db;
             _db.Database.EnsureCreated();
             EnsureRatingColumn();
+            EnsurePlayedColumn();
         }
 
         // Añade la columna Rating a bases de datos creadas antes de introducir el sistema de puntuación
@@ -24,6 +25,14 @@ namespace VideoGameLibrary.Services
             var hasRating = _db.Database.SqlQueryRaw<string>("SELECT name FROM pragma_table_info('Games') WHERE name = 'Rating'").AsEnumerable().Any();
             if (!hasRating)
                 _db.Database.ExecuteSqlRaw("ALTER TABLE Games ADD COLUMN Rating INTEGER NOT NULL DEFAULT 0");
+        }
+
+        // Añade la columna Played a bases de datos creadas antes de introducir la marca de "jugado"
+        private void EnsurePlayedColumn()
+        {
+            var hasPlayed = _db.Database.SqlQueryRaw<string>("SELECT name FROM pragma_table_info('Games') WHERE name = 'Played'").AsEnumerable().Any();
+            if (!hasPlayed)
+                _db.Database.ExecuteSqlRaw("ALTER TABLE Games ADD COLUMN Played INTEGER NOT NULL DEFAULT 0");
         }
 
         public async Task<List<Game>> GetAllAsync()
@@ -45,6 +54,21 @@ namespace VideoGameLibrary.Services
 
         public async Task UpdateAsync(Game game)
         {
+            // El DbContext vive durante toda la sesión de la app, así que una edición anterior
+            // del mismo juego puede seguir bajo seguimiento con otra instancia distinta.
+            // Hay que soltarla antes de adjuntar la nueva o EF Core lanza un conflicto de clave.
+            var tracked = _db.ChangeTracker.Entries<Game>()
+                .FirstOrDefault(e => e.Entity.Id == game.Id && e.Entity != game);
+            if (tracked != null)
+                tracked.State = EntityState.Detached;
+
+            // El diálogo de edición no conoce la fecha de alta original (siempre trae el valor
+            // por defecto = ahora); hay que preservarla o cada edición la pisaría con la fecha actual.
+            game.AddedDate = await _db.Games.AsNoTracking()
+                .Where(g => g.Id == game.Id)
+                .Select(g => g.AddedDate)
+                .FirstOrDefaultAsync();
+
             _db.Games.Update(game);
             await _db.SaveChangesAsync();
         }

@@ -29,6 +29,30 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private ObservableCollection<FilterOption> _yearFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _ratingFilters = new();
 
+        [ObservableProperty] private string _sortOption = "Título (A-Z)";
+
+        [RelayCommand]
+        private void SetSortOption(string option) => SortOption = option;
+
+        [ObservableProperty] private bool _isListView;
+        [ObservableProperty] private int _selectedCount;
+        [ObservableProperty] private bool _hasSelection;
+
+        [RelayCommand]
+        private void ToggleListView() => IsListView = !IsListView;
+
+        [RelayCommand]
+        private void ClearSelection()
+        {
+            foreach (var g in Games) g.IsSelected = false;
+        }
+
+        private void UpdateSelectionCount()
+        {
+            SelectedCount = Games.Count(g => g.IsSelected);
+            HasSelection = SelectedCount > 0;
+        }
+
         private static readonly string[] RatingLabels = { "★★★★★", "★★★★", "★★★", "★★", "★", "Sin puntuar" };
         private static readonly Dictionary<string, int> RatingLabelToValue = new()
         {
@@ -37,6 +61,9 @@ namespace VideoGameLibrary.ViewModels
 
         public ISnackbarMessageQueue SnackbarMessageQueue { get; } = new SnackbarMessageQueue(TimeSpan.FromSeconds(3));
 
+        // La View resuelve la ambigüedad mostrando un selector; null si el usuario cancela
+        public Func<List<Game>, Task<Game?>>? PickCandidate { get; set; }
+
         public MainViewModel(GameRepository repo, GameApiService api)
         {
             _repo = repo;
@@ -44,6 +71,7 @@ namespace VideoGameLibrary.ViewModels
         }
 
         partial void OnSearchTextChanged(string value) => ApplyFilters();
+        partial void OnSortOptionChanged(string value) => ApplyFilters();
 
         [RelayCommand]
         public async Task LoadGamesAsync()
@@ -124,8 +152,22 @@ namespace VideoGameLibrary.ViewModels
             if (selectedRatings.Count > 0)
                 filtered = filtered.Where(g => selectedRatings.Contains(g.Rating));
 
-            Games = new ObservableCollection<GameViewModel>(filtered.OrderBy(g => g.Title).Select(GameViewModel.FromModel));
+            IEnumerable<Game> ordered = SortOption switch
+            {
+                "Plataforma" => filtered.OrderBy(g => g.Platform).ThenBy(g => g.Title),
+                "Año (más reciente)" => filtered.OrderByDescending(g => g.Year ?? 0).ThenBy(g => g.Title),
+                "Añadido recientemente" => filtered.OrderByDescending(g => g.AddedDate),
+                _ => filtered.OrderBy(g => g.Title),
+            };
+
+            Games = new ObservableCollection<GameViewModel>(ordered.Select(g =>
+            {
+                var vm = GameViewModel.FromModel(g);
+                vm.OnSelectionChanged = UpdateSelectionCount;
+                return vm;
+            }));
             TotalGames = Games.Count;
+            UpdateSelectionCount();
         }
 
         // Escaneo rápido: busca, guarda y avisa con un snackbar no bloqueante, sin abrir diálogo
@@ -143,11 +185,22 @@ namespace VideoGameLibrary.ViewModels
                 return;
             }
 
-            var game = await _api.SearchByBarcodeAsync(barcode);
-            if (game == null)
+            var candidates = await _api.SearchCandidatesByBarcodeAsync(barcode);
+            if (candidates.Count == 0)
             {
                 SnackbarMessageQueue.Enqueue($"Código {barcode} no encontrado. Añádelo manualmente.");
                 return;
+            }
+
+            Game? game = candidates[0];
+            if (candidates.Count > 1)
+            {
+                game = PickCandidate != null ? await PickCandidate(candidates) : candidates[0];
+                if (game == null)
+                {
+                    SnackbarMessageQueue.Enqueue("Selección cancelada.");
+                    return;
+                }
             }
 
             if (!string.IsNullOrEmpty(game.CoverUrl) && game.CoverData == null)
@@ -170,8 +223,29 @@ namespace VideoGameLibrary.ViewModels
 
         public async Task DeleteGameAsync(GameViewModel gvm)
         {
-            await _repo.DeleteAsync(gvm.Id);
+            var game = gvm.ToModel();
+            await _repo.DeleteAsync(game.Id);
             await LoadGamesAsync();
+
+            SnackbarMessageQueue.Enqueue($"\"{game.Title}\" eliminado.", "DESHACER",
+                async () => await UndoDeleteAsync(game));
+        }
+
+        private async Task UndoDeleteAsync(Game game)
+        {
+            game.Id = 0; // se reinserta como registro nuevo, con un Id nuevo
+            await _repo.AddAsync(game);
+            await LoadGamesAsync();
+        }
+
+        public async Task<int> DeleteSelectedAsync()
+        {
+            var selected = Games.Where(g => g.IsSelected).ToList();
+            foreach (var g in selected)
+                await _repo.DeleteAsync(g.Id);
+
+            await LoadGamesAsync();
+            return selected.Count;
         }
     }
 }
