@@ -58,6 +58,8 @@ namespace VideoGameLibrary
 
             try
             {
+                LoggingService.PurgeOldLogs();
+
                 var config = LoadConfig();
                 IsDarkTheme = config.DarkTheme;
                 ApplyTheme(IsDarkTheme);
@@ -244,6 +246,18 @@ namespace VideoGameLibrary
             _apiService?.UpdateKeys(scanDexToken, igdbClientId, igdbClientSecret, rawgApiKey, theGamesDbApiKey);
         }
 
+        public static void SaveLastBackupDate(DateTime utc)
+        {
+            try
+            {
+                var config = LoadConfig();
+                config.LastBackupUtc = utc;
+                Directory.CreateDirectory(ConfigFolder);
+                File.WriteAllText(ConfigFile, JsonSerializer.Serialize(config));
+            }
+            catch (Exception ex) { LoggingService.LogError("Guardar fecha de la última copia de seguridad", ex); }
+        }
+
         private static void SaveLastPath(string path)
         {
             try
@@ -299,6 +313,7 @@ namespace VideoGameLibrary
             public string RawgApiKey { get; set; } = string.Empty;
             public string TheGamesDbApiKey { get; set; } = string.Empty;
             public bool DarkTheme { get; set; }
+            public DateTime? LastBackupUtc { get; set; }
         }
     }
 }

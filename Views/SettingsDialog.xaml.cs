@@ -5,11 +5,15 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Media;
 
 namespace VideoGameLibrary.Views
 {
     public partial class SettingsDialog : Window
     {
+        // A partir de este número de días sin copia de seguridad, el aviso se muestra en naranja
+        private const int BackupWarningDays = 30;
+
         public SettingsDialog(bool firstRun = false)
         {
             InitializeComponent();
@@ -39,7 +43,32 @@ namespace VideoGameLibrary.Views
             else
             {
                 Loaded += async (_, _) => TxtCollectionName.Text = await App.Repository.GetCollectionNameAsync();
+                UpdateLastBackupText(config.LastBackupUtc);
             }
+        }
+
+        private void UpdateLastBackupText(DateTime? lastBackupUtc)
+        {
+            if (lastBackupUtc == null)
+            {
+                TxtLastBackup.Text = "Todavía no se ha guardado ninguna copia de seguridad.";
+                TxtLastBackup.Foreground = Brushes.OrangeRed;
+                return;
+            }
+
+            var local = lastBackupUtc.Value.ToLocalTime();
+            var days = (int)(DateTime.Now.Date - local.Date).TotalDays;
+            var when = days switch
+            {
+                0 => "hoy",
+                1 => "hace 1 día",
+                _ => $"hace {days} días"
+            };
+
+            TxtLastBackup.Text = $"Última copia de seguridad: {when} ({local:dd/MM/yyyy}).";
+            TxtLastBackup.Foreground = days > BackupWarningDays
+                ? Brushes.OrangeRed
+                : (Brush)FindResource("MaterialDesignBodyLight");
         }
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
@@ -133,6 +162,11 @@ namespace VideoGameLibrary.Views
                 // confirmó con el usuario si quería sobrescribir, así que aquí solo se aplica.
                 if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
                 App.Repository.BackupTo(dlg.FileName);
+
+                var now = DateTime.UtcNow;
+                App.SaveLastBackupDate(now);
+                UpdateLastBackupText(now);
+
                 MessageBox.Show($"Copia de seguridad guardada en:\n{dlg.FileName}",
                     "Guardar copia de seguridad", MessageBoxButton.OK, MessageBoxImage.Information);
             }

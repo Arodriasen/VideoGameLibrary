@@ -100,8 +100,9 @@
                                Text="Guarda una copia de seguridad de tu colección en el archivo que elijas. Recomendado antes de importar un lote grande o de vez en cuando por si acaso."/>
                     <Button x:Name="BtnBackup" Content="GUARDAR COPIA DE SEGURIDAD..." Click="BtnBackup_Click"
                             Style="{StaticResource MaterialDesignOutlinedButton}"
-                            HorizontalAlignment="Left" Margin="0,0,0,16"
+                            HorizontalAlignment="Left" Margin="0,0,0,4"
                             md:ButtonAssist.CornerRadius="4"/>
+                    <TextBlock x:Name="TxtLastBackup" TextWrapping="Wrap" Margin="0,0,0,16" FontSize="11" FontWeight="Medium"/>
 
                     <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="12"
                                Foreground="{DynamicResource MaterialDesignBodyLight}"
