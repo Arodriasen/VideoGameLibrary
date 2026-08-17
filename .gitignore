@@ -18,3 +18,6 @@ publish/
 *.nupkg
 **/packages/*
 !**/packages/build/
+
+# Chuleta personal, no para el repo
+RELEASE-CHEATSHEET.md
