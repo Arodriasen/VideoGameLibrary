@@ -10,6 +10,10 @@ namespace VideoGameLibrary.Services
 {
     public class GameRepository : IDisposable
     {
+        // Días que un juego permanece en la papelera antes de borrarse para siempre.
+        // Usado tanto por PurgeExpiredTrashAsync como por la UI de la papelera (cuenta atrás por juego).
+        public const int TrashRetentionDays = 7;
+
         private readonly GameDbContext _db;
 
         public GameRepository(GameDbContext db)
@@ -158,7 +162,7 @@ namespace VideoGameLibrary.Services
         }
 
         // Se llama al arrancar la app: borra de verdad lo que lleva más de retentionDays en la papelera
-        public async Task<int> PurgeExpiredTrashAsync(int retentionDays = 7)
+        public async Task<int> PurgeExpiredTrashAsync(int retentionDays = TrashRetentionDays)
         {
             var cutoff = DateTime.Now.AddDays(-retentionDays);
             var expired = await _db.Games.Where(g => g.DeletedDate != null && g.DeletedDate < cutoff).ToListAsync();

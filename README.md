@@ -4,14 +4,18 @@ Aplicación de escritorio para Windows que permite catalogar tu colección perso
 
 ## Características
 
-- Alta rapidez escaneando el código de barras (con lector USB o escribiéndolo a mano).
-- Búsqueda manual por nombre si el código de barras no encuentra el juego.
-- Ficha con portada, plataforma, género, año y notas.
-- Puntuación por estrellas (1 a 5) y filtro por puntuación.
-- Filtros por plataforma, género y año.
-- Exportación de la colección a Excel (.xlsx) o CSV.
+- Alta rapidez escaneando el código de barras (con lector USB o escribiéndolo a mano), incluyendo un modo de escaneo rápido que añade el juego sin abrir ningún diálogo.
+- Búsqueda manual por nombre si el código de barras no encuentra el juego, con selección entre varios resultados candidatos.
+- Ficha con portada, plataforma, editorial, género, año y notas.
+- Puntuación por estrellas (1 a 5), marcar como jugado, y lista de deseos (wishlist) con un botón para pasar el juego a la colección cuando lo compras.
+- Filtros por plataforma, género, año y puntuación, y ordenación de la colección.
+- Papelera: los juegos eliminados se conservan 7 días antes de borrarse para siempre, con opción de restaurarlos mientras tanto.
+- Estadísticas de la colección (icono de gráfico en la barra inferior).
+- Importación desde Excel/CSV (columnas identificadas por nombre, no por posición) y exportación de la colección a Excel (.xlsx) o CSV — la exportación también sirve como copia de seguridad manual de tus datos.
+- Mantenimiento de la base de datos (compactar/VACUUM) desde Ajustes.
 - Tema claro/oscuro.
 - Registro de errores dentro de la app (icono ⚠ en la barra de herramientas) para diagnosticar problemas sin depurador.
+- Aviso automático dentro de la app cuando hay una versión más nueva disponible en GitHub, con acceso directo a la descarga.
 - Todos los datos se guardan localmente: no hay cuentas ni servidores propios.
 
 ## Requisitos
@@ -19,7 +23,15 @@ Aplicación de escritorio para Windows que permite catalogar tu colección perso
 - Windows 10/11 de 64 bits.
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) para compilar el proyecto (no hace falta si solo vas a ejecutar un `.exe` ya publicado).
 
+## Descargar
+
+Si solo quieres usar la app (sin tocar el código), descarga el `.exe` ya compilado desde la [última release](https://github.com/Arodriasen/VideoGameLibrary/releases/latest). No necesita instalación ni tener .NET instalado.
+
+La propia app te avisará dentro de la interfaz cuando salga una versión más nueva, con un acceso directo para descargarla.
+
 ## Compilar y ejecutar
+
+Si prefieres compilarlo tú mismo desde el código fuente:
 
 1. Clona el repositorio.
 2. Para probarlo directamente sin generar un ejecutable:
@@ -51,8 +63,12 @@ La app funciona sin ninguna clave: el escaneo usará únicamente UPCitemdb, que 
 | [RAWG](https://rawg.io/apidocs) | Enriquecimiento por nombre, segunda fuente | Clave gratuita en rawg.io |
 | [TheGamesDB](https://thegamesdb.net/) | Portada como último recurso | Clave gratuita solicitándola en su foro |
 
-Ninguna clave se sube a ningún sitio: se guardan solo en tu equipo, en `%AppData%\VideoGameLibrary\config.json`.
+Ninguna clave se sube a ningún sitio: se guardan solo en tu equipo, en `%AppData%\VideoGameLibrary\config.json`. Ese archivo no está cifrado, así que si compartes tu equipo con otras personas ten en cuenta que cualquiera con acceso a tu usuario de Windows podría leer esas claves.
 
 ## Tecnologías
 
 WPF (.NET 8), Entity Framework Core + SQLite, CommunityToolkit.Mvvm, MaterialDesignInXAML, ClosedXML.
+
+## Licencia
+
+Este proyecto está publicado bajo la licencia [MIT](LICENSE): puedes usarlo, modificarlo y distribuirlo libremente, incluso en proyectos privados o comerciales, siempre citando la licencia original.

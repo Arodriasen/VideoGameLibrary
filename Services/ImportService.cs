@@ -6,6 +6,8 @@ using ClosedXML.Excel;
 
 namespace VideoGameLibrary.Services
 {
+    public enum ImportItemStatus { Nuevo, YaExiste, DuplicadoEnArchivo }
+
     // Lee un CSV (separado por ";", mismo formato que ExportService) o un Excel (.xlsx)
     // con una fila de cabecera. Las columnas se identifican por nombre (no por posición),
     // así que el usuario puede omitir u ordenar las columnas como quiera.
@@ -110,6 +112,46 @@ namespace VideoGameLibrary.Services
             var v = text.Trim().ToLowerInvariant();
             return v is "sí" or "si" or "yes" or "1" or "true" or "x";
         }
+
+        // ── Vista previa: clasifica cada fila del archivo antes de importar nada ───────────
+        // "Ya existe" compara por código de barras contra la colección actual, o por título+plataforma
+        // cuando la fila no trae código de barras (el índice único de la BD solo cubre el barcode).
+        // "Duplicado en el archivo" detecta repeticiones dentro del propio archivo importado.
+        public static List<(Game Game, ImportItemStatus Status)> BuildPreview(List<Game> parsed, List<Game> existing)
+        {
+            var existingBarcodes = new HashSet<string>(
+                existing.Where(g => !string.IsNullOrEmpty(g.Barcode)).Select(g => g.Barcode!),
+                StringComparer.OrdinalIgnoreCase);
+            var existingTitleKeys = new HashSet<string>(existing.Select(g => TitleKey(g.Title, g.Platform)));
+
+            var seenBarcodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var seenTitleKeys = new HashSet<string>();
+
+            var result = new List<(Game, ImportItemStatus)>();
+            foreach (var game in parsed)
+            {
+                var status = Classify(game, existingBarcodes, existingTitleKeys, seenBarcodes, seenTitleKeys);
+                result.Add((game, status));
+            }
+            return result;
+        }
+
+        private static ImportItemStatus Classify(Game game, HashSet<string> existingBarcodes,
+            HashSet<string> existingTitleKeys, HashSet<string> seenBarcodes, HashSet<string> seenTitleKeys)
+        {
+            if (!string.IsNullOrEmpty(game.Barcode))
+            {
+                if (existingBarcodes.Contains(game.Barcode)) return ImportItemStatus.YaExiste;
+                return seenBarcodes.Add(game.Barcode) ? ImportItemStatus.Nuevo : ImportItemStatus.DuplicadoEnArchivo;
+            }
+
+            var titleKey = TitleKey(game.Title, game.Platform);
+            if (existingTitleKeys.Contains(titleKey)) return ImportItemStatus.YaExiste;
+            return seenTitleKeys.Add(titleKey) ? ImportItemStatus.Nuevo : ImportItemStatus.DuplicadoEnArchivo;
+        }
+
+        private static string TitleKey(string title, string platform) =>
+            $"{title.Trim().ToLowerInvariant()}|{platform.Trim().ToLowerInvariant()}";
 
         // ── Cabeceras: se identifican por nombre, no por posición ──────────────
 

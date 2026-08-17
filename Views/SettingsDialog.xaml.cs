@@ -1,7 +1,9 @@
 using VideoGameLibrary.Services;
+using VideoGameLibrary.ViewModels;
 using Microsoft.Win32;
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 
 namespace VideoGameLibrary.Views
@@ -141,9 +143,9 @@ namespace VideoGameLibrary.Views
 
             try
             {
-                var games = new ImportService().ParseFile(dlg.FileName);
+                var parsed = new ImportService().ParseFile(dlg.FileName);
 
-                if (games.Count == 0)
+                if (parsed.Count == 0)
                 {
                     MessageBox.Show(
                         "No se ha encontrado ninguna fila válida. Revisa que el archivo tenga una fila de cabecera y una columna \"Título\".",
@@ -151,11 +153,26 @@ namespace VideoGameLibrary.Views
                     return;
                 }
 
-                var (added, duplicates) = await App.Repository.ImportAsync(games);
+                var existing = await App.Repository.GetAllAsync();
+                var classified = ImportService.BuildPreview(parsed, existing);
+                var previewItems = classified.Select(c => new ImportPreviewItem(c.Game, c.Status)).ToList();
 
-                MessageBox.Show(
-                    $"Importación completada.\n\nAñadidos: {added}\nOmitidos por código de barras duplicado: {duplicates}",
-                    "Importar colección", MessageBoxButton.OK, MessageBoxImage.Information);
+                var previewDlg = new ImportPreviewDialog(previewItems) { Owner = this };
+                if (previewDlg.ShowDialog() != true) return;
+
+                if (previewDlg.SelectedGames.Count == 0)
+                {
+                    MessageBox.Show("No se ha seleccionado ningún juego para importar.",
+                        "Importar colección", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var (added, duplicates) = await App.Repository.ImportAsync(previewDlg.SelectedGames);
+
+                var msg = $"Importación completada.\n\nAñadidos: {added}";
+                if (duplicates > 0) msg += $"\nOmitidos por conflicto en la base de datos: {duplicates}";
+
+                MessageBox.Show(msg, "Importar colección", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {

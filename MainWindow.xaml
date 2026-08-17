@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:conv="clr-namespace:VideoGameLibrary.Converters"
+        xmlns:vwp="clr-namespace:WpfToolkit.Controls;assembly=VirtualizingWrapPanel"
         Title="{Binding WindowTitle}" Height="700" Width="1050" MinHeight="500" MinWidth="700"
         Icon="Resources/AppIcon.ico"
         WindowStartupLocation="CenterScreen"
@@ -234,20 +235,44 @@
                      Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"/>
 
         <!-- Grid de juegos (vista de tarjetas) -->
-        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" Padding="12"
-                      Visibility="{Binding IsListView, Converter={StaticResource BoolToVisConv}, ConverterParameter=invert}">
-            <ItemsControl ItemsSource="{Binding Games}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
+        <ListView Grid.Row="4" Padding="12" BorderThickness="0" Background="Transparent"
+                  ScrollViewer.CanContentScroll="True"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  VirtualizingPanel.ScrollUnit="Pixel"
+                  Visibility="{Binding IsListView, Converter={StaticResource BoolToVisConv}, ConverterParameter=invert}"
+                  ItemsSource="{Binding Games}">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <vwp:VirtualizingWrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <ContentPresenter/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
 
-                <ItemsControl.ItemTemplate>
+                <ListView.ItemTemplate>
                     <DataTemplate>
                         <md:Card Margin="8" Width="160" Padding="0"
                                  UniformCornerRadius="8"
                                  md:ElevationAssist.Elevation="Dp2">
+                            <md:Card.CacheMode>
+                                <!-- RenderAtScale > 1 evita el texto borroso que da BitmapCache por
+                                     defecto en pantallas con escalado de Windows (125%, 150%...) -->
+                                <BitmapCache RenderAtScale="2" SnapsToDevicePixels="True"/>
+                            </md:Card.CacheMode>
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="200"/>
@@ -258,7 +283,7 @@
                                 <!-- Portada -->
                                 <Border Grid.Row="0" CornerRadius="8,8,0,0" ClipToBounds="True">
                                     <Grid Background="{DynamicResource MaterialDesignChipBackground}">
-                                        <Image Source="{Binding CoverData, Converter={StaticResource ByteToImg}}"
+                                        <Image Source="{Binding CoverData, Converter={StaticResource ByteToImg}, ConverterParameter=220}"
                                                Stretch="UniformToFill"
                                                Visibility="{Binding CoverData, Converter={StaticResource NullToVis}}"/>
                                         <md:PackIcon Kind="GamepadVariant" Width="60" Height="60"
@@ -273,8 +298,8 @@
                                 <!-- Info -->
                                 <StackPanel Grid.Row="1" Margin="10,8,10,4">
                                     <TextBlock Text="{Binding Title}" FontWeight="Medium" FontSize="12"
-                                               TextTrimming="CharacterEllipsis" MaxHeight="36"
-                                               TextWrapping="Wrap"/>
+                                               TextTrimming="CharacterEllipsis" Height="32"
+                                               VerticalAlignment="Top" TextWrapping="Wrap"/>
                                     <TextBlock Text="{Binding Platform}" FontSize="11"
                                                Foreground="{DynamicResource MaterialDesignBodyLight}"
                                                TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
@@ -325,15 +350,33 @@
                             </Grid>
                         </md:Card>
                     </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                </ListView.ItemTemplate>
+        </ListView>
 
         <!-- Lista de juegos (vista compacta) -->
-        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" Padding="8"
-                      Visibility="{Binding IsListView, Converter={StaticResource BoolToVisConv}}">
-            <ItemsControl ItemsSource="{Binding Games}">
-                <ItemsControl.ItemTemplate>
+        <ListView Grid.Row="4" Padding="8" BorderThickness="0" Background="Transparent"
+                  ScrollViewer.CanContentScroll="True"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  VirtualizingPanel.ScrollUnit="Pixel"
+                  Visibility="{Binding IsListView, Converter={StaticResource BoolToVisConv}}"
+                  ItemsSource="{Binding Games}">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <ContentPresenter/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
                     <DataTemplate>
                         <Border Padding="8" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1">
                             <Grid>
@@ -351,7 +394,7 @@
                                 <Border Grid.Column="1" Width="48" Height="48" CornerRadius="4"
                                         ClipToBounds="True" Margin="0,0,12,0">
                                     <Grid Background="{DynamicResource MaterialDesignChipBackground}">
-                                        <Image Source="{Binding CoverData, Converter={StaticResource ByteToImg}}"
+                                        <Image Source="{Binding CoverData, Converter={StaticResource ByteToImg}, ConverterParameter=96}"
                                                Stretch="UniformToFill"
                                                Visibility="{Binding CoverData, Converter={StaticResource NullToVis}}"/>
                                         <md:PackIcon Kind="GamepadVariant" Width="22" Height="22"
@@ -411,9 +454,8 @@
                             </Grid>
                         </Border>
                     </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                </ListView.ItemTemplate>
+        </ListView>
 
         <!-- Estado vacío -->
         <StackPanel Grid.Row="4" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -506,6 +548,12 @@
                             Cursor="Hand" Tag="settings" MouseLeftButtonUp="FabOption_Click"
                             md:ElevationAssist.Elevation="Dp3" ToolTip="Ajustes">
                         <md:PackIcon Kind="Cog" Width="18" Height="18" Foreground="White"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <Border x:Name="FabShortcuts" Width="40" Height="40" CornerRadius="20" Margin="0,0,0,10"
+                            Cursor="Hand" Tag="shortcuts" MouseLeftButtonUp="FabOption_Click"
+                            md:ElevationAssist.Elevation="Dp3" ToolTip="Atajos de teclado">
+                        <md:PackIcon Kind="KeyboardOutline" Width="18" Height="18" Foreground="White"
                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <Border x:Name="FabTrash" Width="40" Height="40" CornerRadius="20" Margin="0,0,0,10"

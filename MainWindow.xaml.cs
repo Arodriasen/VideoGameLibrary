@@ -43,6 +43,7 @@ namespace VideoGameLibrary
             FabStats.Background = brush;
             FabSettings.Background = brush;
             FabWishlist.Background = brush;
+            FabShortcuts.Background = brush;
         }
 
         private Task<Game?> ShowCandidatePickerAsync(List<Game> candidates)
@@ -139,6 +140,9 @@ namespace VideoGameLibrary
                     break;
                 case "settings":
                     BtnSettings_Click(sender, e);
+                    break;
+                case "shortcuts":
+                    new ShortcutsDialog { Owner = this }.ShowDialog();
                     break;
             }
         }
