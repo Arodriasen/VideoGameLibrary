@@ -5,6 +5,8 @@ using MaterialDesignThemes.Wpf;
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -222,11 +224,66 @@ namespace VideoGameLibrary
             {
                 if (!File.Exists(ConfigFile)) return new AppConfig();
                 var json = File.ReadAllText(ConfigFile);
-                return JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+                var config = JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+
+                // Las claves se guardan cifradas (ver PersistConfig); aquí se descifran para
+                // que el resto de la app siga trabajando con el texto plano en memoria.
+                config.ScanDexToken = Unprotect(config.ScanDexToken);
+                config.IgdbClientId = Unprotect(config.IgdbClientId);
+                config.IgdbClientSecret = Unprotect(config.IgdbClientSecret);
+                config.RawgApiKey = Unprotect(config.RawgApiKey);
+                config.TheGamesDbApiKey = Unprotect(config.TheGamesDbApiKey);
+                return config;
             }
             catch
             {
                 return new AppConfig();
+            }
+        }
+
+        // Único punto de escritura de config.json: cifra las claves de API con DPAPI
+        // (ligado al usuario de Windows actual) antes de guardar. Las instalaciones que
+        // vengan de una versión anterior tenían las claves en texto plano en el archivo;
+        // Unprotect las detecta como no cifradas, las deja pasar tal cual, y al llamar aquí
+        // de nuevo (el siguiente guardado, del tipo que sea) quedan cifradas sin más pasos.
+        private static void PersistConfig(AppConfig config)
+        {
+            var toStore = new AppConfig
+            {
+                LastDatabasePath = config.LastDatabasePath,
+                ScanDexToken = Protect(config.ScanDexToken),
+                IgdbClientId = Protect(config.IgdbClientId),
+                IgdbClientSecret = Protect(config.IgdbClientSecret),
+                RawgApiKey = Protect(config.RawgApiKey),
+                TheGamesDbApiKey = Protect(config.TheGamesDbApiKey),
+                DarkTheme = config.DarkTheme,
+                LastBackupUtc = config.LastBackupUtc
+            };
+
+            Directory.CreateDirectory(ConfigFolder);
+            File.WriteAllText(ConfigFile, JsonSerializer.Serialize(toStore));
+        }
+
+        internal static string Protect(string plainText)
+        {
+            if (string.IsNullOrEmpty(plainText)) return string.Empty;
+            var encrypted = ProtectedData.Protect(Encoding.UTF8.GetBytes(plainText), null, DataProtectionScope.CurrentUser);
+            return Convert.ToBase64String(encrypted);
+        }
+
+        // Si el valor no es un blob DPAPI válido (p.ej. una clave en texto plano guardada por
+        // una versión anterior de la app), se devuelve tal cual en vez de fallar.
+        internal static string Unprotect(string storedValue)
+        {
+            if (string.IsNullOrEmpty(storedValue)) return string.Empty;
+            try
+            {
+                var decrypted = ProtectedData.Unprotect(Convert.FromBase64String(storedValue), null, DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(decrypted);
+            }
+            catch
+            {
+                return storedValue;
             }
         }
 
@@ -240,8 +297,7 @@ namespace VideoGameLibrary
             config.RawgApiKey = rawgApiKey;
             config.TheGamesDbApiKey = theGamesDbApiKey;
 
-            Directory.CreateDirectory(ConfigFolder);
-            File.WriteAllText(ConfigFile, JsonSerializer.Serialize(config));
+            PersistConfig(config);
 
             _apiService?.UpdateKeys(scanDexToken, igdbClientId, igdbClientSecret, rawgApiKey, theGamesDbApiKey);
         }
@@ -252,8 +308,7 @@ namespace VideoGameLibrary
             {
                 var config = LoadConfig();
                 config.LastBackupUtc = utc;
-                Directory.CreateDirectory(ConfigFolder);
-                File.WriteAllText(ConfigFile, JsonSerializer.Serialize(config));
+                PersistConfig(config);
             }
             catch (Exception ex) { LoggingService.LogError("Guardar fecha de la última copia de seguridad", ex); }
         }
@@ -264,9 +319,7 @@ namespace VideoGameLibrary
             {
                 var config = LoadConfig();
                 config.LastDatabasePath = path;
-                Directory.CreateDirectory(ConfigFolder);
-                var json = JsonSerializer.Serialize(config);
-                File.WriteAllText(ConfigFile, json);
+                PersistConfig(config);
             }
             catch (Exception ex) { LoggingService.LogError("Guardar ruta de la última base de datos", ex); }
         }
@@ -298,8 +351,7 @@ namespace VideoGameLibrary
             {
                 var config = LoadConfig();
                 config.DarkTheme = dark;
-                Directory.CreateDirectory(ConfigFolder);
-                File.WriteAllText(ConfigFile, JsonSerializer.Serialize(config));
+                PersistConfig(config);
             }
             catch (Exception ex) { LoggingService.LogError("Guardar preferencia de tema", ex); }
         }

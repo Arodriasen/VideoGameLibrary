@@ -16,8 +16,9 @@ entorno, correr los tests y enviar cambios.
 
 ## Correr los tests
 
-El proyecto `VideoGameLibrary.Tests` (xUnit) cubre `ImportService` y las utilidades
-internas de `GameApiService` (normalización de código de barras, extracción de año, etc.):
+El proyecto `VideoGameLibrary.Tests` (xUnit) cubre `ImportService`, `GameRepository`,
+`MainViewModel` y las utilidades internas de `GameApiService` (normalización de código
+de barras, extracción de año, etc.):
 
 ```
 dotnet test VideoGameLibrary.Tests\VideoGameLibrary.Tests.csproj
