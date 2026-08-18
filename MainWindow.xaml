@@ -20,6 +20,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </Window.Resources>
 
+    <md:DialogHost Identifier="MainDialogHost">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -294,8 +295,30 @@
                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
                                                      Foreground="{DynamicResource MaterialDesignBodyLight}"
                                                      Visibility="{Binding CoverData, Converter={StaticResource NullToVis}, ConverterParameter=invert}"/>
-                                        <CheckBox IsChecked="{Binding IsSelected}"
-                                                  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="4"/>
+                                        <Border Width="26" Height="26" CornerRadius="13" Margin="6"
+                                                HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                Background="#66000000">
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="6" ShadowDepth="1"
+                                                                  Direction="270" Opacity="0.55" Color="Black"/>
+                                            </Border.Effect>
+                                            <CheckBox IsChecked="{Binding IsSelected}" Width="18" Height="18"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <CheckBox.Template>
+                                                    <ControlTemplate TargetType="CheckBox">
+                                                        <Grid>
+                                                            <Ellipse x:Name="Ring" Stroke="White" StrokeThickness="1.6" Fill="Transparent"/>
+                                                        </Grid>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource MaterialDesign.Brush.Primary}"/>
+                                                                <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource MaterialDesign.Brush.Primary}"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </CheckBox.Template>
+                                            </CheckBox>
+                                        </Border>
                                     </Grid>
                                 </Border>
 
@@ -626,4 +649,5 @@
             </StackPanel>
         </Grid>
     </Grid>
+    </md:DialogHost>
 </Window>

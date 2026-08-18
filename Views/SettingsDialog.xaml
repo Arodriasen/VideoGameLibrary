@@ -8,6 +8,7 @@
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         FontFamily="{DynamicResource MaterialDesignFont}">
 
+    <md:DialogHost Identifier="SettingsDialogHost">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -147,4 +148,5 @@
                     md:ButtonAssist.CornerRadius="4"/>
         </StackPanel>
     </Grid>
+    </md:DialogHost>
 </Window>

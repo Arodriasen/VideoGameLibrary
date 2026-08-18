@@ -15,6 +15,7 @@
         <conv:DeletedDateToDaysLeftConverter x:Key="DaysLeft"/>
     </Window.Resources>
 
+    <md:DialogHost Identifier="TrashDialogHost">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -105,4 +106,5 @@
                     md:ButtonAssist.CornerRadius="4"/>
         </StackPanel>
     </Grid>
+    </md:DialogHost>
 </Window>

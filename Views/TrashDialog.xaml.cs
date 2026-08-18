@@ -39,8 +39,7 @@ namespace VideoGameLibrary.Views
             catch (Exception ex)
             {
                 LoggingService.LogError($"Restaurar juego de la papelera \"{game.Title}\"", ex);
-                MessageBox.Show($"No se ha podido restaurar el juego:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("TrashDialogHost", $"No se ha podido restaurar el juego:\n{ex.Message}");
             }
         }
 
@@ -48,10 +47,10 @@ namespace VideoGameLibrary.Views
         {
             if (((Button)sender).Tag is not Game game) return;
 
-            var result = MessageBox.Show(
+            var confirmed = await AppDialogService.ShowConfirmAsync("TrashDialogHost",
                 $"¿Eliminar \"{game.Title}\" definitivamente? Esta acción no se puede deshacer.",
-                "Eliminar definitivamente", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (result != MessageBoxResult.Yes) return;
+                "Eliminar definitivamente");
+            if (!confirmed) return;
 
             try
             {
@@ -62,8 +61,7 @@ namespace VideoGameLibrary.Views
             catch (Exception ex)
             {
                 LoggingService.LogError($"Eliminar definitivamente \"{game.Title}\"", ex);
-                MessageBox.Show($"No se ha podido eliminar el juego:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("TrashDialogHost", $"No se ha podido eliminar el juego:\n{ex.Message}");
             }
         }
 
@@ -72,10 +70,10 @@ namespace VideoGameLibrary.Views
             var trash = await App.Repository.GetTrashAsync();
             if (trash.Count == 0) return;
 
-            var result = MessageBox.Show(
+            var confirmed = await AppDialogService.ShowConfirmAsync("TrashDialogHost",
                 $"¿Vaciar la papelera? Se eliminarán definitivamente {trash.Count} juego(s). Esta acción no se puede deshacer.",
-                "Vaciar papelera", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (result != MessageBoxResult.Yes) return;
+                "Vaciar papelera");
+            if (!confirmed) return;
 
             try
             {
@@ -88,8 +86,7 @@ namespace VideoGameLibrary.Views
             catch (Exception ex)
             {
                 LoggingService.LogError("Vaciar papelera", ex);
-                MessageBox.Show($"No se ha podido vaciar la papelera:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("TrashDialogHost", $"No se ha podido vaciar la papelera:\n{ex.Message}");
             }
         }
 

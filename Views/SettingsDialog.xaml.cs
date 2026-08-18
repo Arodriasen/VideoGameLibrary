@@ -95,8 +95,7 @@ namespace VideoGameLibrary.Views
             catch (Exception ex)
             {
                 LoggingService.LogError("Guardar nombre de la colección", ex);
-                MessageBox.Show($"No se ha podido guardar el nombre:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido guardar el nombre:\n{ex.Message}");
             }
         }
 
@@ -117,16 +116,14 @@ namespace VideoGameLibrary.Views
                 var newPath = await App.RenameDatabaseFileAsync(dlg.FileName);
                 if (newPath != null)
                 {
-                    MessageBox.Show($"Archivo renombrado a:\n{newPath}",
-                        "Renombrar archivo", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await AppDialogService.ShowInfoAsync("SettingsDialogHost", $"Archivo renombrado a:\n{newPath}", "Renombrar archivo");
                     DialogResult = true; // cierra Ajustes; MainWindow detecta el cambio de repositorio y recarga
                 }
             }
             catch (Exception ex)
             {
                 LoggingService.LogError("Renombrar archivo .db", ex);
-                MessageBox.Show($"No se ha podido renombrar el archivo:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido renombrar el archivo:\n{ex.Message}");
             }
         }
 
@@ -140,12 +137,11 @@ namespace VideoGameLibrary.Views
             catch (Exception ex)
             {
                 LoggingService.LogError("Cambiar de colección", ex);
-                MessageBox.Show($"No se ha podido abrir esa colección:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido abrir esa colección:\n{ex.Message}");
             }
         }
 
-        private void BtnBackup_Click(object sender, RoutedEventArgs e)
+        private async void BtnBackup_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new SaveFileDialog
             {
@@ -167,30 +163,26 @@ namespace VideoGameLibrary.Views
                 App.SaveLastBackupDate(now);
                 UpdateLastBackupText(now);
 
-                MessageBox.Show($"Copia de seguridad guardada en:\n{dlg.FileName}",
-                    "Guardar copia de seguridad", MessageBoxButton.OK, MessageBoxImage.Information);
+                await AppDialogService.ShowInfoAsync("SettingsDialogHost", $"Copia de seguridad guardada en:\n{dlg.FileName}", "Guardar copia de seguridad");
             }
             catch (Exception ex)
             {
                 LoggingService.LogError("Guardar copia de seguridad", ex);
-                MessageBox.Show($"No se ha podido guardar la copia de seguridad:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido guardar la copia de seguridad:\n{ex.Message}");
             }
         }
 
-        private void BtnVacuum_Click(object sender, RoutedEventArgs e)
+        private async void BtnVacuum_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 App.Repository.Vacuum();
-                MessageBox.Show("Base de datos compactada correctamente.",
-                    "Compactar base de datos", MessageBoxButton.OK, MessageBoxImage.Information);
+                await AppDialogService.ShowInfoAsync("SettingsDialogHost", "Base de datos compactada correctamente.", "Compactar base de datos");
             }
             catch (Exception ex)
             {
                 LoggingService.LogError("Compactar base de datos (VACUUM)", ex);
-                MessageBox.Show($"No se ha podido compactar la base de datos:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido compactar la base de datos:\n{ex.Message}");
             }
         }
 
@@ -209,9 +201,8 @@ namespace VideoGameLibrary.Views
                 var headers = importer.ReadHeaders(dlg.FileName);
                 if (headers.Count == 0)
                 {
-                    MessageBox.Show(
-                        "No se ha podido leer ninguna cabecera de columna en el archivo.",
-                        "Importar colección", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    await AppDialogService.ShowWarningAsync("SettingsDialogHost",
+                        "No se ha podido leer ninguna cabecera de columna en el archivo.", "Importar colección");
                     return;
                 }
 
@@ -223,9 +214,9 @@ namespace VideoGameLibrary.Views
 
                 if (parsed.Count == 0)
                 {
-                    MessageBox.Show(
+                    await AppDialogService.ShowWarningAsync("SettingsDialogHost",
                         "No se ha encontrado ninguna fila válida. Revisa que el archivo tenga una fila de cabecera y una columna \"Título\".",
-                        "Importar colección", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        "Importar colección");
                     return;
                 }
 
@@ -238,8 +229,8 @@ namespace VideoGameLibrary.Views
 
                 if (previewDlg.SelectedGames.Count == 0)
                 {
-                    MessageBox.Show("No se ha seleccionado ningún juego para importar.",
-                        "Importar colección", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await AppDialogService.ShowInfoAsync("SettingsDialogHost",
+                        "No se ha seleccionado ningún juego para importar.", "Importar colección");
                     return;
                 }
 
@@ -248,13 +239,12 @@ namespace VideoGameLibrary.Views
                 var msg = $"Importación completada.\n\nAñadidos: {added}";
                 if (duplicates > 0) msg += $"\nOmitidos por conflicto en la base de datos: {duplicates}";
 
-                MessageBox.Show(msg, "Importar colección", MessageBoxButton.OK, MessageBoxImage.Information);
+                await AppDialogService.ShowInfoAsync("SettingsDialogHost", msg, "Importar colección");
             }
             catch (Exception ex)
             {
                 LoggingService.LogError("Importar colección desde CSV/Excel", ex);
-                MessageBox.Show($"No se ha podido importar el archivo:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido importar el archivo:\n{ex.Message}");
             }
         }
     }

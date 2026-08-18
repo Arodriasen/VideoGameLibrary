@@ -163,9 +163,9 @@ namespace VideoGameLibrary
                 catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
                 {
                     LoggingService.LogError("Guardar juego — código de barras duplicado", ex);
-                    MessageBox.Show(
+                    await AppDialogService.ShowWarningAsync("MainDialogHost",
                         "Ya existe un juego con ese código de barras (puede estar en la papelera). Revisa la papelera o usa otro código.",
-                        "Código de barras duplicado", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        "Código de barras duplicado");
                 }
             }
         }
@@ -205,8 +205,7 @@ namespace VideoGameLibrary
             catch (Exception ex)
             {
                 LoggingService.LogError($"Eliminar juego \"{gvm.Title}\"", ex);
-                MessageBox.Show($"Error al eliminar el juego:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("MainDialogHost", $"Error al eliminar el juego:\n{ex.Message}");
             }
         }
 
@@ -221,8 +220,7 @@ namespace VideoGameLibrary
             catch (Exception ex)
             {
                 LoggingService.LogError($"Mover a la colección \"{gvm.Title}\"", ex);
-                MessageBox.Show($"Error al mover el juego a la colección:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("MainDialogHost", $"Error al mover el juego a la colección:\n{ex.Message}");
             }
         }
 
@@ -274,8 +272,7 @@ namespace VideoGameLibrary
             else
                 exporter.ExportToCsv(games, dlg.FileName);
 
-            MessageBox.Show($"Exportación completada: {dlg.FileName}",
-                "Exportar", MessageBoxButton.OK, MessageBoxImage.Information);
+            await AppDialogService.ShowInfoAsync("MainDialogHost", $"Exportación completada: {dlg.FileName}", "Exportar");
         }
 
         private async void BtnDeleteSelected_Click(object sender, RoutedEventArgs e)
@@ -293,8 +290,7 @@ namespace VideoGameLibrary
             catch (Exception ex)
             {
                 LoggingService.LogError("Eliminar juegos seleccionados", ex);
-                MessageBox.Show($"Error al eliminar los juegos:\n{ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await AppDialogService.ShowErrorAsync("MainDialogHost", $"Error al eliminar los juegos:\n{ex.Message}");
             }
         }
     }

@@ -32,13 +32,13 @@ namespace VideoGameLibrary.Views
             Process.Start(new ProcessStartInfo(LoggingService.LogFolderPath) { UseShellExecute = true });
         }
 
-        private void BtnClear_Click(object sender, RoutedEventArgs e)
+        private async void BtnClear_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show(
+            var confirmed = await AppDialogService.ShowConfirmAsync("LogViewerDialogHost",
                 "¿Borrar todo el registro de errores? Esta acción no se puede deshacer.",
-                "Limpiar registro", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                "Limpiar registro");
 
-            if (result != MessageBoxResult.Yes) return;
+            if (!confirmed) return;
 
             LoggingService.ClearLogs();
             LoadLog();

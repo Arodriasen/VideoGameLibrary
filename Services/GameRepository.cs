@@ -88,7 +88,19 @@ namespace VideoGameLibrary.Services
         public async Task AddAsync(Game game)
         {
             _db.Games.Add(game);
-            await _db.SaveChangesAsync();
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // El _db vive durante toda la sesión de la app (ver comentario en MigrateDatabase):
+                // si no se suelta aquí, la entidad fallida se queda en Added para siempre y revienta
+                // el SIGUIENTE SaveChangesAsync de cualquier operación, aunque no tenga nada que ver
+                // (por eso un "código duplicado" al añadir podía bloquear luego un borrado normal).
+                _db.Entry(game).State = EntityState.Detached;
+                throw;
+            }
         }
 
         public async Task UpdateAsync(Game game)

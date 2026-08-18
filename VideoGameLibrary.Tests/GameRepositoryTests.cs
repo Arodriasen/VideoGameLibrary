@@ -53,6 +53,23 @@ namespace VideoGameLibrary.Tests
         }
 
         [Fact]
+        public async Task AddAsync_tras_barcode_duplicado_fallido_no_bloquea_operaciones_posteriores()
+        {
+            await _repo.AddAsync(NewGame("Juego A", barcode: "111"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(
+                () => _repo.AddAsync(NewGame("Juego B", barcode: "111")));
+
+            // Antes de soltar del ChangeTracker la entidad fallida, este SaveChangesAsync
+            // -- sin relación alguna con el duplicado -- también fallaba con el mismo
+            // UNIQUE constraint, porque EF reintentaba guardar la entidad fallida junto a este.
+            await _repo.AddAsync(NewGame("Juego C", barcode: "222"));
+
+            var all = await _repo.GetAllAsync();
+            Assert.Equal(2, all.Count);
+        }
+
+        [Fact]
         public async Task DeleteAsync_es_borrado_suave_el_juego_pasa_a_la_papelera()
         {
             await _repo.AddAsync(NewGame("Celeste"));
