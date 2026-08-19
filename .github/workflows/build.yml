@@ -19,6 +19,11 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Instalar PostgreSQL local (para los tests de GameRepository/MainViewModel)
+        run: |
+          winget install --id PostgreSQL.PostgreSQL.17 --silent --accept-package-agreements --accept-source-agreements --custom "--unattendedmodeui minimal --superpassword Admin123!"
+        shell: pwsh
+
       - name: Restaurar dependencias
         run: dotnet restore VideoGameLibrary.sln
 

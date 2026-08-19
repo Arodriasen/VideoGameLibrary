@@ -1,8 +1,6 @@
 using System;
-using System.IO;
 using System.Linq;
 using System.Windows;
-using System.Windows.Media;
 using Microsoft.Win32;
 using VideoGameLibrary.Services;
 using VideoGameLibrary.ViewModels;
@@ -11,14 +9,12 @@ namespace VideoGameLibrary.Views
 {
     public partial class SettingsDialog : Window
     {
-        // A partir de este número de días sin copia de seguridad, el aviso se muestra en naranja
-        private const int BackupWarningDays = 30;
-
         public SettingsDialog(bool firstRun = false)
         {
             InitializeComponent();
 
             var config = App.LoadConfig();
+            TxtConnectionString.Text = config.ConnectionString;
             TxtScanDex.Text = config.ScanDexToken;
             TxtIgdbClientId.Text = config.IgdbClientId;
             TxtIgdbClientSecret.Text = config.IgdbClientSecret;
@@ -27,10 +23,10 @@ namespace VideoGameLibrary.Views
 
             if (firstRun)
             {
-                TxtIntro.Text = "Bienvenido a Mi Colección de Juegos. Antes de empezar, puedes introducir tus claves de API " +
-                                 "para que el escaneo de códigos de barras encuentre título, portada y datos automáticamente. " +
-                                 "Son opcionales: puedes dejarlas en blanco y añadirlas más tarde desde Ajustes.";
-                BtnCancel.Content = "OMITIR POR AHORA";
+                TxtIntro.Text = "Bienvenido a Mi Colección de Juegos. Antes de empezar, introduce la cadena de conexión de tu " +
+                                 "base de datos en Neon. También puedes añadir tus claves de API (opcionales) para que el " +
+                                 "escaneo de códigos de barras encuentre título, portada y datos automáticamente.";
+                BtnCancel.Content = "CANCELAR";
 
                 // Aún no hay ninguna base de datos abierta en este punto del arranque
                 SwitchDbSeparator.Visibility = Visibility.Collapsed;
@@ -43,32 +39,7 @@ namespace VideoGameLibrary.Views
             else
             {
                 Loaded += async (_, _) => TxtCollectionName.Text = await App.Repository.GetCollectionNameAsync();
-                UpdateLastBackupText(config.LastBackupUtc);
             }
-        }
-
-        private void UpdateLastBackupText(DateTime? lastBackupUtc)
-        {
-            if (lastBackupUtc == null)
-            {
-                TxtLastBackup.Text = "Todavía no se ha guardado ninguna copia de seguridad.";
-                TxtLastBackup.Foreground = Brushes.OrangeRed;
-                return;
-            }
-
-            var local = lastBackupUtc.Value.ToLocalTime();
-            var days = (int)(DateTime.Now.Date - local.Date).TotalDays;
-            var when = days switch
-            {
-                0 => "hoy",
-                1 => "hace 1 día",
-                _ => $"hace {days} días"
-            };
-
-            TxtLastBackup.Text = $"Última copia de seguridad: {when} ({local:dd/MM/yyyy}).";
-            TxtLastBackup.Foreground = days > BackupWarningDays
-                ? Brushes.OrangeRed
-                : (Brush)FindResource("MaterialDesignBodyLight");
         }
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
@@ -99,90 +70,28 @@ namespace VideoGameLibrary.Views
             }
         }
 
-        private async void BtnRenameDbFile_Click(object sender, RoutedEventArgs e)
+        private async void BtnSaveConnection_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new SaveFileDialog
+            var connectionString = TxtConnectionString.Text.Trim();
+            if (connectionString.Length == 0)
             {
-                Title = "Renombrar archivo de la colección",
-                Filter = "Base de datos (*.db)|*.db",
-                DefaultExt = ".db",
-                FileName = Path.GetFileNameWithoutExtension(App.CurrentDatabasePath),
-                InitialDirectory = Path.GetDirectoryName(App.CurrentDatabasePath)
-            };
-            if (dlg.ShowDialog() != true) return;
+                await AppDialogService.ShowWarningAsync("SettingsDialogHost", "Introduce una cadena de conexión.", "Conexión a la base de datos");
+                return;
+            }
 
             try
             {
-                var newPath = await App.RenameDatabaseFileAsync(dlg.FileName);
-                if (newPath != null)
-                {
-                    await AppDialogService.ShowInfoAsync("SettingsDialogHost", $"Archivo renombrado a:\n{newPath}", "Renombrar archivo");
-                    DialogResult = true; // cierra Ajustes; MainWindow detecta el cambio de repositorio y recarga
-                }
+                await App.ReconnectAsync(connectionString);
+                // No cierra el diálogo: en el primer arranque el usuario puede seguir rellenando
+                // las claves de API y guardar con el botón GUARDAR de abajo. MainWindow detecta el
+                // cambio de repositorio comparando referencias cuando el diálogo se cierre (ver BtnSettings_Click).
+                await AppDialogService.ShowInfoAsync("SettingsDialogHost", "Conexión establecida correctamente.", "Conexión a la base de datos");
             }
             catch (Exception ex)
             {
-                LoggingService.LogError("Renombrar archivo .db", ex);
-                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido renombrar el archivo:\n{ex.Message}");
-            }
-        }
-
-        private async void BtnSwitchDatabase_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (await App.SwitchDatabaseInteractiveAsync())
-                    DialogResult = true; // cierra Ajustes; MainWindow detecta el cambio y recarga
-            }
-            catch (Exception ex)
-            {
-                LoggingService.LogError("Cambiar de colección", ex);
-                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido abrir esa colección:\n{ex.Message}");
-            }
-        }
-
-        private async void BtnBackup_Click(object sender, RoutedEventArgs e)
-        {
-            var dlg = new SaveFileDialog
-            {
-                Title = "Guardar copia de seguridad",
-                Filter = "Base de datos (*.db)|*.db",
-                DefaultExt = ".db",
-                FileName = $"{Path.GetFileNameWithoutExtension(App.CurrentDatabasePath)}_backup_{DateTime.Now:yyyyMMdd}.db"
-            };
-            if (dlg.ShowDialog() != true) return;
-
-            try
-            {
-                // VACUUM INTO exige que el archivo destino no exista todavía; SaveFileDialog ya
-                // confirmó con el usuario si quería sobrescribir, así que aquí solo se aplica.
-                if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
-                App.Repository.BackupTo(dlg.FileName);
-
-                var now = DateTime.UtcNow;
-                App.SaveLastBackupDate(now);
-                UpdateLastBackupText(now);
-
-                await AppDialogService.ShowInfoAsync("SettingsDialogHost", $"Copia de seguridad guardada en:\n{dlg.FileName}", "Guardar copia de seguridad");
-            }
-            catch (Exception ex)
-            {
-                LoggingService.LogError("Guardar copia de seguridad", ex);
-                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido guardar la copia de seguridad:\n{ex.Message}");
-            }
-        }
-
-        private async void BtnVacuum_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                App.Repository.Vacuum();
-                await AppDialogService.ShowInfoAsync("SettingsDialogHost", "Base de datos compactada correctamente.", "Compactar base de datos");
-            }
-            catch (Exception ex)
-            {
-                LoggingService.LogError("Compactar base de datos (VACUUM)", ex);
-                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido compactar la base de datos:\n{ex.Message}");
+                LoggingService.LogError("Conectar con la base de datos Neon", ex);
+                await AppDialogService.ShowErrorAsync("SettingsDialogHost",
+                    $"No se ha podido conectar con la base de datos. Revisa la cadena de conexión y tu conexión a internet:\n{ex.Message}");
             }
         }
 

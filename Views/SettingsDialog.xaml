@@ -50,11 +50,30 @@
                          md:HintAssist.Hint="TheGamesDB API Key"
                          Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
 
+                <Separator Margin="0,24,0,0"/>
+
+                <StackPanel Margin="0,16,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <md:PackIcon Kind="DatabaseSyncOutline" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Conexión a la base de datos" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock TextWrapping="Wrap" Margin="0,6,0,8" FontSize="12"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Text="Cadena de conexión de tu base de datos en Neon. La encuentras en el dashboard de tu proyecto, en 'Connection string' (formato .NET/Npgsql)."/>
+                    <TextBox x:Name="TxtConnectionString" Margin="0,0,0,8" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="80"
+                             md:HintAssist.Hint="Host=...;Database=...;Username=...;Password=...;SSL Mode=Require;"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                    <Button x:Name="BtnSaveConnection" Content="GUARDAR Y CONECTAR" Click="BtnSaveConnection_Click"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            HorizontalAlignment="Left" Margin="0,0,0,4"
+                            md:ButtonAssist.CornerRadius="4"/>
+                </StackPanel>
+
                 <Separator x:Name="SwitchDbSeparator" Margin="0,24,0,0"/>
 
                 <StackPanel x:Name="SwitchDbSection" Margin="0,16,0,0">
                     <StackPanel Orientation="Horizontal">
-                        <md:PackIcon Kind="DatabaseSyncOutline" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <md:PackIcon Kind="TagOutline" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBlock Text="Colección" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
                     </StackPanel>
 
@@ -72,21 +91,9 @@
                                 Style="{StaticResource MaterialDesignOutlinedButton}"
                                 md:ButtonAssist.CornerRadius="4"/>
                     </Grid>
-                    <TextBlock TextWrapping="Wrap" Margin="0,4,0,16" FontSize="11"
+                    <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11"
                                Foreground="{DynamicResource MaterialDesignBodyLight}"
-                               Text="Solo cambia cómo se ve dentro de la app — no afecta al archivo .db."/>
-
-                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="12"
-                               Foreground="{DynamicResource MaterialDesignBodyLight}"
-                               Text="Abre otra colección existente (.db) o crea una nueva, sin cerrar la app."/>
-                    <Button x:Name="BtnSwitchDatabase" Content="ABRIR OTRA COLECCIÓN..." Click="BtnSwitchDatabase_Click"
-                            Style="{StaticResource MaterialDesignOutlinedButton}"
-                            HorizontalAlignment="Left" Margin="0,0,0,8"
-                            md:ButtonAssist.CornerRadius="4"/>
-                    <Button x:Name="BtnRenameDbFile" Content="RENOMBRAR ARCHIVO .DB..." Click="BtnRenameDbFile_Click"
-                            Style="{StaticResource MaterialDesignOutlinedButton}"
-                            HorizontalAlignment="Left"
-                            md:ButtonAssist.CornerRadius="4"/>
+                               Text="Solo cambia cómo se ve dentro de la app."/>
                 </StackPanel>
 
                 <Separator x:Name="MaintenanceSeparator" Margin="0,24,0,0"/>
@@ -96,24 +103,8 @@
                         <md:PackIcon Kind="DatabaseCogOutline" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBlock Text="Mantenimiento" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
                     </StackPanel>
+
                     <TextBlock TextWrapping="Wrap" Margin="0,6,0,10" FontSize="12"
-                               Foreground="{DynamicResource MaterialDesignBodyLight}"
-                               Text="Guarda una copia de seguridad de tu colección en el archivo que elijas. Recomendado antes de importar un lote grande o de vez en cuando por si acaso."/>
-                    <Button x:Name="BtnBackup" Content="GUARDAR COPIA DE SEGURIDAD..." Click="BtnBackup_Click"
-                            Style="{StaticResource MaterialDesignOutlinedButton}"
-                            HorizontalAlignment="Left" Margin="0,0,0,4"
-                            md:ButtonAssist.CornerRadius="4"/>
-                    <TextBlock x:Name="TxtLastBackup" TextWrapping="Wrap" Margin="0,0,0,16" FontSize="11" FontWeight="Medium"/>
-
-                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="12"
-                               Foreground="{DynamicResource MaterialDesignBodyLight}"
-                               Text="Al borrar un juego, el archivo .db no reduce su tamaño ni elimina físicamente los datos hasta que se compacta. Esto es normal en SQLite y no afecta al funcionamiento de la app, pero puedes compactarlo manualmente cuando quieras."/>
-                    <Button x:Name="BtnVacuum" Content="COMPACTAR BASE DE DATOS" Click="BtnVacuum_Click"
-                            Style="{StaticResource MaterialDesignOutlinedButton}"
-                            HorizontalAlignment="Left" Margin="0,0,0,16"
-                            md:ButtonAssist.CornerRadius="4"/>
-
-                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="12"
                                Foreground="{DynamicResource MaterialDesignBodyLight}"
                                Text="Busca juegos que probablemente estén repetidos en tu colección (mismo código de barras, o mismo título y plataforma si no lo tienen), por ejemplo tras añadir el mismo juego a mano dos veces."/>
                     <Button x:Name="BtnFindDuplicates" Content="BUSCAR DUPLICADOS" Click="BtnFindDuplicates_Click"

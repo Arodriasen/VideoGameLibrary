@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using VideoGameLibrary.Data;
 using VideoGameLibrary.Models;
 
@@ -27,51 +25,30 @@ namespace VideoGameLibrary.Services
 
         public void Dispose() => _db.Dispose();
 
-        // Aplica las migraciones de EF Core. Las bases de datos creadas con versiones anteriores de la
-        // app (antes de introducir migraciones formales) se generaron con Database.EnsureCreated() y
-        // columnas añadidas a mano por ALTER TABLE -- no tienen la tabla __EFMigrationsHistory. Si se
-        // dejara que Migrate() actuase directamente sobre ellas, intentaría volver a crear la tabla
-        // Games (ya existente, con datos reales) y fallaría. En ese caso se marca la migración inicial
-        // como ya aplicada -- su esquema coincide exactamente con lo que ya hay -- sin ejecutarla; a
-        // partir de ahí Migrate() funciona con normalidad para cualquier migración futura.
-        private void MigrateDatabase()
-        {
-            var historyRepository = _db.GetService<IHistoryRepository>();
+        // Aplica las migraciones de EF Core. La base de datos en Neon nace vacía (no hay
+        // instalaciones antiguas que preservar), así que basta con Migrate() sin bootstrap especial.
+        private void MigrateDatabase() => _db.Database.Migrate();
 
-            if (!historyRepository.Exists())
-            {
-                var gamesTableExists = _db.Database.SqlQueryRaw<string>(
-                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'Games'").AsEnumerable().Any();
-
-                if (gamesTableExists)
-                {
-                    var initialMigrationId = _db.GetService<IMigrationsAssembly>().Migrations.Keys.Single();
-                    _db.Database.ExecuteSqlRaw(historyRepository.GetCreateScript());
-                    _db.Database.ExecuteSqlRaw(historyRepository.GetInsertScript(new HistoryRow(initialMigrationId, "8.0.8")));
-                }
-            }
-
-            _db.Database.Migrate();
-        }
-
-        // Tabla de una sola fila con el nombre visible de la colección (independiente del
-        // nombre del archivo .db, para poder renombrar uno sin afectar al otro)
+        // Tabla de una sola fila con el nombre visible de la colección. Los identificadores van
+        // entre comillas dobles porque Postgres pliega a minúsculas lo que no va entre comillas,
+        // y así coinciden con el PascalCase que usa EF Core para el resto de tablas/columnas.
         private void EnsureCollectionSettingsTable()
         {
             _db.Database.ExecuteSqlRaw(
-                "CREATE TABLE IF NOT EXISTS CollectionSettings (Id INTEGER PRIMARY KEY CHECK (Id = 1), Name TEXT NOT NULL DEFAULT '')");
+                "CREATE TABLE IF NOT EXISTS \"CollectionSettings\" (\"Id\" integer PRIMARY KEY CHECK (\"Id\" = 1), \"Name\" text NOT NULL DEFAULT '')");
         }
 
         public async Task<string> GetCollectionNameAsync()
         {
-            var rows = await _db.Database.SqlQueryRaw<string>("SELECT Name FROM CollectionSettings WHERE Id = 1").ToListAsync();
+            var rows = await _db.Database.SqlQueryRaw<string>("SELECT \"Name\" FROM \"CollectionSettings\" WHERE \"Id\" = 1").ToListAsync();
             return rows.FirstOrDefault() ?? string.Empty;
         }
 
         public async Task SetCollectionNameAsync(string name)
         {
             await _db.Database.ExecuteSqlRawAsync(
-                "INSERT INTO CollectionSettings (Id, Name) VALUES (1, {0}) ON CONFLICT(Id) DO UPDATE SET Name = {0}", name);
+                "INSERT INTO \"CollectionSettings\" (\"Id\", \"Name\") VALUES (1, {0}) " +
+                "ON CONFLICT (\"Id\") DO UPDATE SET \"Name\" = EXCLUDED.\"Name\"", name);
         }
 
         public async Task<List<Game>> GetAllAsync()
@@ -201,23 +178,6 @@ namespace VideoGameLibrary.Services
             }
 
             return (added, duplicates);
-        }
-
-        // Compacta el archivo .db, eliminando físicamente los restos de los registros borrados.
-        // Reescribe el archivo entero — se deja como acción manual (ver Ajustes) en vez de automática
-        // para que no penalice el rendimiento si la colección crece mucho.
-        public void Vacuum()
-        {
-            _db.Database.ExecuteSqlRaw("VACUUM");
-        }
-
-        // Copia de seguridad consistente del .db mientras la app lo sigue usando: VACUUM INTO es
-        // el mecanismo nativo de SQLite para esto (usa su propio backup API por debajo), más seguro
-        // que copiar el archivo a nivel de sistema de ficheros con la conexión todavía abierta.
-        // Como efecto secundario también compacta la copia (no el archivo original).
-        public void BackupTo(string destinationPath)
-        {
-            _db.Database.ExecuteSqlRaw("VACUUM INTO {0}", destinationPath);
         }
     }
 }

@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
-using Microsoft.Win32;
 using VideoGameLibrary.Data;
 using VideoGameLibrary.Services;
 using VideoGameLibrary.ViewModels;
@@ -20,7 +19,6 @@ namespace VideoGameLibrary
         private static GameApiService _apiService = null!;
         public static GameApiService ApiService => _apiService;
         public static bool IsDarkTheme { get; private set; }
-        public static string CurrentDatabasePath { get; private set; } = string.Empty;
 
         private static readonly string ConfigFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VideoGameLibrary");
@@ -66,25 +64,26 @@ namespace VideoGameLibrary
                 IsDarkTheme = config.DarkTheme;
                 ApplyTheme(IsDarkTheme);
 
-                if (string.IsNullOrEmpty(config.ScanDexToken) && string.IsNullOrEmpty(config.IgdbClientId) &&
-                    string.IsNullOrEmpty(config.IgdbClientSecret) && string.IsNullOrEmpty(config.RawgApiKey) &&
-                    string.IsNullOrEmpty(config.TheGamesDbApiKey))
+                if (string.IsNullOrEmpty(config.ConnectionString))
                 {
+                    // El propio diálogo de primer arranque valida la conexión llamando a
+                    // ReconnectAsync (así el usuario ve enseguida si la cadena es incorrecta,
+                    // en vez de descubrirlo en un error genérico al arrancar). Si cancela o la
+                    // conexión falla, Repository se queda sin asignar y se cierra la app.
                     new Views.SettingsDialog(firstRun: true).ShowDialog();
-                    config = LoadConfig();
-                }
 
-                var dbPath = GetOrSelectDatabase();
-                if (dbPath == null)
+                    if (Repository == null)
+                    {
+                        Shutdown();
+                        return;
+                    }
+                }
+                else
                 {
-                    Shutdown();
-                    return;
+                    var db = new GameDbContext(config.ConnectionString);
+                    Repository = new GameRepository(db);
+                    await Repository.PurgeExpiredTrashAsync();
                 }
-
-                var db = new GameDbContext(dbPath);
-                Repository = new GameRepository(db);
-                CurrentDatabasePath = dbPath;
-                await Repository.PurgeExpiredTrashAsync();
 
                 _apiService = new GameApiService(
                     config.ScanDexToken,
@@ -120,102 +119,19 @@ namespace VideoGameLibrary
                 () => Process.Start(new ProcessStartInfo(update.Url) { UseShellExecute = true }));
         }
 
-        private static string? GetOrSelectDatabase()
+        // Guarda una cadena de conexión nueva y reconecta sin reiniciar la app: crea un
+        // repositorio nuevo apuntando a la base indicada y lo deja como el activo (aplica
+        // migraciones si hace falta). Quien llame es responsable de refrescar la UI.
+        public static async Task ReconnectAsync(string connectionString)
         {
-            var lastDb = LoadConfig().LastDatabasePath;
+            var db = new GameDbContext(connectionString);
+            var repo = new GameRepository(db);
+            await repo.PurgeExpiredTrashAsync();
 
-            if (!string.IsNullOrEmpty(lastDb) && File.Exists(lastDb))
-                return lastDb;
+            Repository?.Dispose();
+            Repository = repo;
 
-            return PromptForDatabase();
-        }
-
-        // Cambia de colección sin reiniciar la app: crea un repositorio nuevo apuntando al
-        // .db elegido y lo deja como el activo. Quien llame es responsable de refrescar la UI.
-        public static async Task<bool> SwitchDatabaseInteractiveAsync()
-        {
-            var path = PromptForDatabase();
-            if (path == null) return false;
-
-            await SwitchDatabaseAsync(path);
-            return true;
-        }
-
-        public static async Task SwitchDatabaseAsync(string path)
-        {
-            var db = new GameDbContext(path);
-            Repository = new GameRepository(db);
-            CurrentDatabasePath = path;
-            await Repository.PurgeExpiredTrashAsync();
-            SaveLastPath(path);
-        }
-
-        // Renombra (o mueve) el archivo .db actual. Hay que soltar el archivo antes de moverlo:
-        // Dispose() cierra la conexión, pero Microsoft.Data.Sqlite mantiene un pool de conexiones
-        // que puede seguir reteniendo el archivo hasta que se limpia explícitamente.
-        public static Task<string?> RenameDatabaseFileAsync(string newFileNameOrPath)
-        {
-            var fileName = newFileNameOrPath.EndsWith(".db", StringComparison.OrdinalIgnoreCase)
-                ? newFileNameOrPath
-                : newFileNameOrPath + ".db";
-            var newPath = Path.IsPathRooted(fileName)
-                ? fileName
-                : Path.Combine(Path.GetDirectoryName(CurrentDatabasePath)!, fileName);
-
-            if (string.Equals(newPath, CurrentDatabasePath, StringComparison.OrdinalIgnoreCase))
-                return Task.FromResult<string?>(null);
-
-            if (File.Exists(newPath))
-                throw new IOException("Ya existe un archivo con ese nombre.");
-
-            Repository.Dispose();
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            File.Move(CurrentDatabasePath, newPath);
-
-            var db = new GameDbContext(newPath);
-            Repository = new GameRepository(db);
-            CurrentDatabasePath = newPath;
-            SaveLastPath(newPath);
-
-            return Task.FromResult<string?>(newPath);
-        }
-
-        private static string? PromptForDatabase()
-        {
-            var result = MessageBox.Show(
-                "¿Quieres abrir una colección existente o crear una nueva?\n\n" +
-                "Sí → Abrir existente (.db)\nNo → Crear nueva",
-                "Mi Colección de Juegos — Seleccionar base de datos",
-                MessageBoxButton.YesNoCancel,
-                MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Cancel) return null;
-
-            if (result == MessageBoxResult.Yes)
-            {
-                var dlg = new OpenFileDialog
-                {
-                    Title = "Abrir colección existente",
-                    Filter = "Base de datos (*.db)|*.db",
-                    DefaultExt = ".db"
-                };
-                if (dlg.ShowDialog() != true) return null;
-                SaveLastPath(dlg.FileName);
-                return dlg.FileName;
-            }
-            else
-            {
-                var dlg = new SaveFileDialog
-                {
-                    Title = "Crear nueva colección",
-                    Filter = "Base de datos (*.db)|*.db",
-                    DefaultExt = ".db",
-                    FileName = "MiColeccionJuegos"
-                };
-                if (dlg.ShowDialog() != true) return null;
-                SaveLastPath(dlg.FileName);
-                return dlg.FileName;
-            }
+            SaveConnectionString(connectionString);
         }
 
         public static AppConfig LoadConfig()
@@ -226,8 +142,9 @@ namespace VideoGameLibrary
                 var json = File.ReadAllText(ConfigFile);
                 var config = JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
 
-                // Las claves se guardan cifradas (ver PersistConfig); aquí se descifran para
-                // que el resto de la app siga trabajando con el texto plano en memoria.
+                // Las claves y la cadena de conexión se guardan cifradas (ver PersistConfig); aquí
+                // se descifran para que el resto de la app siga trabajando con texto plano en memoria.
+                config.ConnectionString = Unprotect(config.ConnectionString);
                 config.ScanDexToken = Unprotect(config.ScanDexToken);
                 config.IgdbClientId = Unprotect(config.IgdbClientId);
                 config.IgdbClientSecret = Unprotect(config.IgdbClientSecret);
@@ -250,14 +167,13 @@ namespace VideoGameLibrary
         {
             var toStore = new AppConfig
             {
-                LastDatabasePath = config.LastDatabasePath,
+                ConnectionString = Protect(config.ConnectionString),
                 ScanDexToken = Protect(config.ScanDexToken),
                 IgdbClientId = Protect(config.IgdbClientId),
                 IgdbClientSecret = Protect(config.IgdbClientSecret),
                 RawgApiKey = Protect(config.RawgApiKey),
                 TheGamesDbApiKey = Protect(config.TheGamesDbApiKey),
-                DarkTheme = config.DarkTheme,
-                LastBackupUtc = config.LastBackupUtc
+                DarkTheme = config.DarkTheme
             };
 
             Directory.CreateDirectory(ConfigFolder);
@@ -302,26 +218,11 @@ namespace VideoGameLibrary
             _apiService?.UpdateKeys(scanDexToken, igdbClientId, igdbClientSecret, rawgApiKey, theGamesDbApiKey);
         }
 
-        public static void SaveLastBackupDate(DateTime utc)
+        private static void SaveConnectionString(string connectionString)
         {
-            try
-            {
-                var config = LoadConfig();
-                config.LastBackupUtc = utc;
-                PersistConfig(config);
-            }
-            catch (Exception ex) { LoggingService.LogError("Guardar fecha de la última copia de seguridad", ex); }
-        }
-
-        private static void SaveLastPath(string path)
-        {
-            try
-            {
-                var config = LoadConfig();
-                config.LastDatabasePath = path;
-                PersistConfig(config);
-            }
-            catch (Exception ex) { LoggingService.LogError("Guardar ruta de la última base de datos", ex); }
+            var config = LoadConfig();
+            config.ConnectionString = connectionString;
+            PersistConfig(config);
         }
 
         public static GameEditViewModel GetEditViewModel()
@@ -358,14 +259,13 @@ namespace VideoGameLibrary
 
         public class AppConfig
         {
-            public string LastDatabasePath { get; set; } = string.Empty;
+            public string ConnectionString { get; set; } = string.Empty;
             public string ScanDexToken { get; set; } = string.Empty;
             public string IgdbClientId { get; set; } = string.Empty;
             public string IgdbClientSecret { get; set; } = string.Empty;
             public string RawgApiKey { get; set; } = string.Empty;
             public string TheGamesDbApiKey { get; set; } = string.Empty;
             public bool DarkTheme { get; set; }
-            public DateTime? LastBackupUtc { get; set; }
         }
     }
 }

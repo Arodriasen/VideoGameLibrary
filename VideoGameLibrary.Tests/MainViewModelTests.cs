@@ -12,24 +12,22 @@ namespace VideoGameLibrary.Tests
     // [WpfFact] (Xunit.StaFact) ejecuta el test en un hilo STA con Dispatcher, como en la app real.
     public class MainViewModelTests : IDisposable
     {
-        private readonly string _dbPath;
+        private readonly GameDbContext _db;
         private readonly GameRepository _repo;
         private readonly MainViewModel _vm;
 
         public MainViewModelTests()
         {
-            _dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.db");
-            _repo = new GameRepository(new GameDbContext(_dbPath));
+            var dbName = $"videogamelibrarytests_{Guid.NewGuid():N}";
+            _db = new GameDbContext($"Host=localhost;Database={dbName};Username=postgres;Password=Admin123!;Include Error Detail=true");
+            _repo = new GameRepository(_db);
             _vm = new MainViewModel(_repo, new GameApiService());
         }
 
         public void Dispose()
         {
+            _db.Database.EnsureDeleted();
             _repo.Dispose();
-            // EF Core/Microsoft.Data.Sqlite mantienen un pool de conexiones nativo: sin esto el
-            // archivo .db sigue "en uso" un instante después de Dispose() y el borrado falla.
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            if (File.Exists(_dbPath)) File.Delete(_dbPath);
         }
 
         private async Task SeedAsync(params Game[] games)

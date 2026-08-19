@@ -5,28 +5,24 @@ using VideoGameLibrary.Services;
 
 namespace VideoGameLibrary.Tests
 {
-    // Cada test usa su propio archivo SQLite temporal (no una BD compartida) para poder
-    // correr en paralelo sin interferirse y dejar el disco limpio al terminar.
+    // Cada test usa su propia base de datos en el PostgreSQL local (no una BD compartida) para
+    // poder correr en paralelo sin interferirse; se borra en Dispose().
     public class GameRepositoryTests : IDisposable
     {
-        private readonly string _dbPath;
         private readonly GameDbContext _db;
         private readonly GameRepository _repo;
 
         public GameRepositoryTests()
         {
-            _dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.db");
-            _db = new GameDbContext(_dbPath);
+            var dbName = $"videogamelibrarytests_{Guid.NewGuid():N}";
+            _db = new GameDbContext($"Host=localhost;Database={dbName};Username=postgres;Password=Admin123!;Include Error Detail=true");
             _repo = new GameRepository(_db);
         }
 
         public void Dispose()
         {
+            _db.Database.EnsureDeleted();
             _repo.Dispose();
-            // EF Core/Microsoft.Data.Sqlite mantienen un pool de conexiones nativo: sin esto el
-            // archivo .db sigue "en uso" un instante después de Dispose() y el borrado falla.
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            if (File.Exists(_dbPath)) File.Delete(_dbPath);
         }
 
         private static Game NewGame(string title, string? barcode = null, string platform = "Nintendo Switch") =>
@@ -178,6 +174,18 @@ namespace VideoGameLibrary.Tests
             Assert.Equal(2, added);
             Assert.Equal(1, duplicates);
             Assert.Equal(3, (await _repo.GetAllAsync()).Count); // 1 original + 2 nuevos
+        }
+
+        // Comprobación empírica de que Postgres, como SQLite, permite varias filas NULL en un
+        // índice único (a diferencia de SQL Server, que solo permite una) -- ver GameDbContext.
+        [Fact]
+        public async Task AddAsync_permite_varios_juegos_sin_codigo_de_barras()
+        {
+            await _repo.AddAsync(NewGame("Juego sin barcode 1", barcode: null));
+            await _repo.AddAsync(NewGame("Juego sin barcode 2", barcode: null));
+
+            var all = await _repo.GetAllAsync();
+            Assert.Equal(2, all.Count);
         }
 
         [Fact]
