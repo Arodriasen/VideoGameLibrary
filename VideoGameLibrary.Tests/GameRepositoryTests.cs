@@ -1,7 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using VideoGameLibrary.Data;
 using VideoGameLibrary.Models;
 using VideoGameLibrary.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace VideoGameLibrary.Tests
 {

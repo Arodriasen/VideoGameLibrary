@@ -1,8 +1,3 @@
-using VideoGameLibrary.Data;
-using VideoGameLibrary.Services;
-using VideoGameLibrary.ViewModels;
-using MaterialDesignThemes.Wpf;
-using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
@@ -11,6 +6,11 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using MaterialDesignThemes.Wpf;
+using Microsoft.Win32;
+using VideoGameLibrary.Data;
+using VideoGameLibrary.Services;
+using VideoGameLibrary.ViewModels;
 
 namespace VideoGameLibrary
 {

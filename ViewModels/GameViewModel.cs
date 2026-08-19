@@ -1,5 +1,5 @@
-using VideoGameLibrary.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
+using VideoGameLibrary.Models;
 
 namespace VideoGameLibrary.ViewModels
 {

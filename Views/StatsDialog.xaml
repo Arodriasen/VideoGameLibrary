@@ -4,7 +4,8 @@
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:conv="clr-namespace:VideoGameLibrary.Converters"
         Title="Estadísticas de la colección" Height="620" Width="520"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        MinHeight="480" MinWidth="420"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
         Background="{DynamicResource MaterialDesignPaper}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         FontFamily="{DynamicResource MaterialDesignFont}">
@@ -64,7 +65,7 @@
                     <md:PackIcon Kind="HeartOutline" Width="14" Height="14" VerticalAlignment="Center"
                                  Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,4,0"/>
                     <TextBlock FontSize="12" Foreground="{DynamicResource MaterialDesignBodyLight}">
-                        <Run Text="{Binding WishlistCount, Mode=OneTime}" FontWeight="Medium"/>
+                        <Run Text="{Binding WishlistCount}" FontWeight="Medium"/>
                         <Run Text=" en tu lista de deseos (no incluidos arriba)"/>
                     </TextBlock>
                 </StackPanel>
@@ -99,6 +100,33 @@
                 <!-- Por género -->
                 <TextBlock Text="Por género" FontWeight="Medium" FontSize="14" Margin="0,0,0,8"/>
                 <ItemsControl ItemsSource="{Binding ByGenre}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="60"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="12"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <ProgressBar Grid.Column="1" Height="8" VerticalAlignment="Center" Margin="8,0"
+                                             Minimum="0" Maximum="{Binding Total}" Value="{Binding Count, Mode=OneTime}"/>
+                                <TextBlock Grid.Column="2" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource MaterialDesignBodyLight}">
+                                    <Run Text="{Binding Count, Mode=OneTime}"/>
+                                    <Run Text=" ("/>
+                                    <Run Text="{Binding PercentageText, Mode=OneTime}"/>
+                                    <Run Text=")"/>
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Progreso por año (año en que se añadieron a la colección) -->
+                <TextBlock Text="Progreso por año" FontWeight="Medium" FontSize="14" Margin="0,20,0,8"/>
+                <ItemsControl ItemsSource="{Binding ByYearAdded}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="0,0,0,8">

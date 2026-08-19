@@ -1,12 +1,12 @@
-using VideoGameLibrary.Data;
-using VideoGameLibrary.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using VideoGameLibrary.Data;
+using VideoGameLibrary.Models;
 
 namespace VideoGameLibrary.Services
 {

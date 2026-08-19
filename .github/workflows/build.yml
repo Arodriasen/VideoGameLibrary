@@ -22,6 +22,9 @@ jobs:
       - name: Restaurar dependencias
         run: dotnet restore VideoGameLibrary.sln
 
+      - name: Verificar formato (.editorconfig)
+        run: dotnet format VideoGameLibrary.sln --verify-no-changes
+
       - name: Compilar (Release)
         run: dotnet build VideoGameLibrary.sln -c Release --no-restore
 

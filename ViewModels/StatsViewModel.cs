@@ -1,11 +1,11 @@
-using VideoGameLibrary.Models;
-using VideoGameLibrary.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using VideoGameLibrary.Models;
+using VideoGameLibrary.Services;
 
 namespace VideoGameLibrary.ViewModels
 {
@@ -30,6 +30,7 @@ namespace VideoGameLibrary.ViewModels
 
         public ObservableCollection<StatsRow> ByPlatform { get; } = new();
         public ObservableCollection<StatsRow> ByGenre { get; } = new();
+        public ObservableCollection<StatsRow> ByYearAdded { get; } = new();
 
         public StatsViewModel(GameRepository repo)
         {
@@ -55,9 +56,15 @@ namespace VideoGameLibrary.ViewModels
             foreach (var row in BuildRows(games, g => g.Platform))
                 ByPlatform.Add(row);
 
+            // El género se guarda como un único texto separado por comas (ver MainViewModel.SplitGenres) —
+            // sin separarlo aquí, "Acción, Aventura" y "Acción" cuentan como categorías distintas.
             ByGenre.Clear();
-            foreach (var row in BuildRows(games, g => g.Genre))
+            foreach (var row in BuildRows(games, g => MainViewModel.SplitGenres(g.Genre)))
                 ByGenre.Add(row);
+
+            ByYearAdded.Clear();
+            foreach (var row in BuildYearAddedRows(games))
+                ByYearAdded.Add(row);
 
             IsLoading = false;
         }
@@ -70,6 +77,29 @@ namespace VideoGameLibrary.ViewModels
                 .GroupBy(selector)
                 .Select(gr => new StatsRow { Label = gr.Key, Count = gr.Count(), Total = total })
                 .OrderByDescending(r => r.Count)
+                .ToList();
+        }
+
+        private static List<StatsRow> BuildRows(List<Game> games, Func<Game, IEnumerable<string>> selector)
+        {
+            var total = games.Count;
+            return games
+                .SelectMany(selector)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .GroupBy(v => v)
+                .Select(gr => new StatsRow { Label = gr.Key, Count = gr.Count(), Total = total })
+                .OrderByDescending(r => r.Count)
+                .ToList();
+        }
+
+        // Orden cronológico (no por recuento como el resto) porque esto representa progreso en el tiempo.
+        private static List<StatsRow> BuildYearAddedRows(List<Game> games)
+        {
+            var total = games.Count;
+            return games
+                .GroupBy(g => g.AddedDate.Year)
+                .Select(gr => new StatsRow { Label = gr.Key.ToString(), Count = gr.Count(), Total = total })
+                .OrderBy(r => r.Label)
                 .ToList();
         }
     }

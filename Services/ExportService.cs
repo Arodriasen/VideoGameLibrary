@@ -1,8 +1,8 @@
-using VideoGameLibrary.Models;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using ClosedXML.Excel;
+using VideoGameLibrary.Models;
 
 namespace VideoGameLibrary.Services
 {

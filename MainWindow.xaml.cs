@@ -1,15 +1,15 @@
-using VideoGameLibrary.Models;
-using VideoGameLibrary.Services;
-using VideoGameLibrary.ViewModels;
-using VideoGameLibrary.Views;
-using MaterialDesignThemes.Wpf;
-using Microsoft.Win32;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using MaterialDesignThemes.Wpf;
+using Microsoft.Win32;
+using VideoGameLibrary.Models;
+using VideoGameLibrary.Services;
+using VideoGameLibrary.ViewModels;
+using VideoGameLibrary.Views;
 
 namespace VideoGameLibrary
 {

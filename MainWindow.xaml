@@ -148,6 +148,16 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
 
+                                    <TextBlock Text="Estado" FontWeight="Medium" FontSize="11"
+                                               Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,12,0,4"/>
+                                    <ItemsControl ItemsSource="{Binding PlayedFilters}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Value}" IsChecked="{Binding IsSelected}" Margin="0,2"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
                                     <TextBlock Text="Portada" FontWeight="Medium" FontSize="11"
                                                Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,12,0,4"/>
                                     <CheckBox Content="Sin portada" IsChecked="{Binding OnlyMissingCover}" Margin="0,2"/>

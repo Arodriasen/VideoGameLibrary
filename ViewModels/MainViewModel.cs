@@ -1,13 +1,13 @@
-using VideoGameLibrary.Models;
-using VideoGameLibrary.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using MaterialDesignThemes.Wpf;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using MaterialDesignThemes.Wpf;
+using VideoGameLibrary.Models;
+using VideoGameLibrary.Services;
 
 namespace VideoGameLibrary.ViewModels
 {
@@ -32,6 +32,7 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private ObservableCollection<FilterOption> _genreFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _yearFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _ratingFilters = new();
+        [ObservableProperty] private ObservableCollection<FilterOption> _playedFilters = new();
         [ObservableProperty] private bool _onlyMissingCover;
 
         [ObservableProperty] private string _sortOption = "Título (A-Z)";
@@ -83,7 +84,19 @@ namespace VideoGameLibrary.ViewModels
         private static readonly string[] RatingLabels = { "★★★★★", "★★★★", "★★★", "★★", "★", "Sin puntuar" };
         private static readonly Dictionary<string, int> RatingLabelToValue = new()
         {
-            ["★★★★★"] = 5, ["★★★★"] = 4, ["★★★"] = 3, ["★★"] = 2, ["★"] = 1, ["Sin puntuar"] = 0
+            ["★★★★★"] = 5,
+            ["★★★★"] = 4,
+            ["★★★"] = 3,
+            ["★★"] = 2,
+            ["★"] = 1,
+            ["Sin puntuar"] = 0
+        };
+
+        private static readonly string[] PlayedLabels = { "Jugados", "Falta por jugar" };
+        private static readonly Dictionary<string, bool> PlayedLabelToValue = new()
+        {
+            ["Jugados"] = true,
+            ["Falta por jugar"] = false
         };
 
         public ISnackbarMessageQueue SnackbarMessageQueue { get; } = new SnackbarMessageQueue(TimeSpan.FromSeconds(3));
@@ -124,14 +137,20 @@ namespace VideoGameLibrary.ViewModels
             GenreFilters = RebuildFacet(GenreFilters, scoped.SelectMany(g => SplitGenres(g.Genre)));
             YearFilters = RebuildFacet(YearFilters, scoped.Where(g => g.Year.HasValue).Select(g => g.Year!.Value.ToString()));
             RatingFilters = RebuildRatingFacet(RatingFilters);
+            PlayedFilters = RebuildFixedFacet(PlayedFilters, PlayedLabels);
         }
 
         private ObservableCollection<FilterOption> RebuildRatingFacet(ObservableCollection<FilterOption> previous)
+            => RebuildFixedFacet(previous, RatingLabels);
+
+        // Igual que RebuildFacet, pero para facetas con un conjunto fijo de opciones (no derivado
+        // de los datos), como Puntuación o Estado — siempre se muestran todas las etiquetas.
+        private ObservableCollection<FilterOption> RebuildFixedFacet(ObservableCollection<FilterOption> previous, string[] labels)
         {
             var previousSelected = previous.Where(f => f.IsSelected).Select(f => f.Value).ToHashSet();
 
             var result = new ObservableCollection<FilterOption>();
-            foreach (var label in RatingLabels)
+            foreach (var label in labels)
                 result.Add(new FilterOption { Value = label, IsSelected = previousSelected.Contains(label), OnChanged = ApplyFilters });
 
             return result;
@@ -164,6 +183,7 @@ namespace VideoGameLibrary.ViewModels
             foreach (var f in GenreFilters) f.IsSelected = false;
             foreach (var f in YearFilters) f.IsSelected = false;
             foreach (var f in RatingFilters) f.IsSelected = false;
+            foreach (var f in PlayedFilters) f.IsSelected = false;
             OnlyMissingCover = false;
         }
 
@@ -186,6 +206,7 @@ namespace VideoGameLibrary.ViewModels
             var selectedGenres = GenreFilters.Where(f => f.IsSelected).Select(f => f.Value).ToHashSet();
             var selectedYears = YearFilters.Where(f => f.IsSelected).Select(f => f.Value).ToHashSet();
             var selectedRatings = RatingFilters.Where(f => f.IsSelected).Select(f => RatingLabelToValue[f.Value]).ToHashSet();
+            var selectedPlayed = PlayedFilters.Where(f => f.IsSelected).Select(f => PlayedLabelToValue[f.Value]).ToHashSet();
 
             if (selectedPlatforms.Count > 0)
                 filtered = filtered.Where(g => selectedPlatforms.Contains(g.Platform));
@@ -195,6 +216,8 @@ namespace VideoGameLibrary.ViewModels
                 filtered = filtered.Where(g => g.Year.HasValue && selectedYears.Contains(g.Year.Value.ToString()));
             if (selectedRatings.Count > 0)
                 filtered = filtered.Where(g => selectedRatings.Contains(g.Rating));
+            if (selectedPlayed.Count > 0)
+                filtered = filtered.Where(g => selectedPlayed.Contains(g.Played));
             if (OnlyMissingCover)
                 filtered = filtered.Where(g => g.CoverData == null || g.CoverData.Length == 0);
 

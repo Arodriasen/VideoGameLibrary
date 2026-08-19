@@ -1,9 +1,9 @@
-using VideoGameLibrary.Models;
-using VideoGameLibrary.Services;
 using System;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using VideoGameLibrary.Models;
+using VideoGameLibrary.Services;
 
 namespace VideoGameLibrary.Views
 {

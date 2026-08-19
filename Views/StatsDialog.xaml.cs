@@ -1,5 +1,5 @@
-using VideoGameLibrary.ViewModels;
 using System.Windows;
+using VideoGameLibrary.ViewModels;
 
 namespace VideoGameLibrary.Views
 {

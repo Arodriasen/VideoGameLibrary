@@ -24,15 +24,21 @@ de barras, extracción de año, etc.):
 dotnet test VideoGameLibrary.Tests\VideoGameLibrary.Tests.csproj
 ```
 
-El CI (`.github/workflows/build.yml`) compila y corre estos tests en cada push a
-`master`/`features/*` y en cada Pull Request contra `master` — un PR con el build en
-rojo no se puede fusionar con garantías.
+El CI (`.github/workflows/build.yml`) compila, verifica el formato y corre estos tests
+en cada push a `master`/`features/*` y en cada Pull Request contra `master` — un PR con
+el build en rojo no se puede fusionar con garantías.
 
 ## Estilo de código
 
 El repositorio incluye un `.editorconfig` en la raíz con la indentación y convenciones
 del proyecto (Visual Studio y VS Code lo aplican automáticamente al escribir o dar
-formato). No hace falta configurar nada aparte.
+formato). El CI ejecuta `dotnet format VideoGameLibrary.sln --verify-no-changes` y falla
+si algo no cumple el `.editorconfig` (imports desordenados, fin de línea, etc.). Antes de
+subir cambios, corrige cualquier aviso en local con:
+
+```
+dotnet format VideoGameLibrary.sln
+```
 
 ## Flujo de ramas
 

@@ -10,9 +10,9 @@ Aplicación de escritorio para Windows que permite catalogar tu colección perso
 - Búsqueda manual por nombre si el código de barras no encuentra el juego, con selección entre varios resultados candidatos.
 - Ficha con portada, plataforma, editorial, género, año y notas.
 - Puntuación por estrellas (1 a 5), marcar como jugado, y lista de deseos (wishlist) con un botón para pasar el juego a la colección cuando lo compras.
-- Filtros por plataforma, género, año y puntuación, y ordenación de la colección.
+- Filtros por plataforma, género, año, puntuación y estado (jugado / falta por jugar), y ordenación de la colección.
 - Papelera: los juegos eliminados se conservan 7 días antes de borrarse para siempre, con opción de restaurarlos mientras tanto.
-- Estadísticas de la colección (icono de gráfico en la barra inferior).
+- Estadísticas de la colección (icono de gráfico en la barra inferior): totales, por plataforma, por género y progreso de altas por año. La ventana se puede redimensionar.
 - Importación desde Excel/CSV (columnas identificadas por nombre, no por posición), con vista previa antes de importar que avisa de duplicados. Exportación de la colección a Excel (.xlsx) o CSV.
 - Copia de seguridad de la base de datos con un clic desde Ajustes, y mantenimiento (compactar/VACUUM).
 - Tema claro/oscuro.

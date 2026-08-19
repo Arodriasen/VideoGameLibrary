@@ -1,7 +1,7 @@
-using VideoGameLibrary.Models;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Input;
+using VideoGameLibrary.Models;
 
 namespace VideoGameLibrary.Views
 {

@@ -1,8 +1,8 @@
-using VideoGameLibrary.Services;
-using VideoGameLibrary.ViewModels;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
+using VideoGameLibrary.Services;
+using VideoGameLibrary.ViewModels;
 
 namespace VideoGameLibrary.Views
 {

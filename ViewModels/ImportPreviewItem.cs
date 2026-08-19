@@ -1,7 +1,7 @@
+using System.Windows.Media;
+using CommunityToolkit.Mvvm.ComponentModel;
 using VideoGameLibrary.Models;
 using VideoGameLibrary.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
-using System.Windows.Media;
 
 namespace VideoGameLibrary.ViewModels
 {

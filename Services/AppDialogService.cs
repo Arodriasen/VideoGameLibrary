@@ -1,5 +1,5 @@
-using MaterialDesignThemes.Wpf;
 using System.Threading.Tasks;
+using MaterialDesignThemes.Wpf;
 using VideoGameLibrary.Views;
 
 namespace VideoGameLibrary.Services

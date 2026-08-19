@@ -1,11 +1,11 @@
-using VideoGameLibrary.Models;
-using VideoGameLibrary.ViewModels;
-using Microsoft.Win32;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using Microsoft.Win32;
+using VideoGameLibrary.Models;
+using VideoGameLibrary.ViewModels;
 
 namespace VideoGameLibrary.Views
 {
@@ -20,6 +20,7 @@ namespace VideoGameLibrary.Views
             vm.CloseDialog = () => DialogResult = vm.Saved;
             vm.PickCandidate = ShowCandidatePickerAsync;
             Loaded += (_, _) => TxtBarcode.Focus();
+            Closed += (_, _) => vm.CancelPendingOperations();
         }
 
         private Task<Game?> ShowCandidatePickerAsync(List<Game> candidates)

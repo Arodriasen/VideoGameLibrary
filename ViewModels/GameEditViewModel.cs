@@ -1,16 +1,23 @@
-using VideoGameLibrary.Models;
-using VideoGameLibrary.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using VideoGameLibrary.Models;
+using VideoGameLibrary.Services;
 
 namespace VideoGameLibrary.ViewModels
 {
     public partial class GameEditViewModel : ObservableObject
     {
         private readonly GameApiService _api;
+
+        // Cancela cualquier búsqueda/descarga en curso si el diálogo se cierra antes de que termine
+        // (p.ej. el usuario pulsa Cancelar mientras espera resultados) — evita seguir consumiendo la
+        // API en segundo plano y, sobre todo, evita que ResolveCandidateAsync intente abrir el selector
+        // de candidatos con Owner apuntando a una ventana ya cerrada.
+        private readonly CancellationTokenSource _cts = new();
 
         [ObservableProperty] private string _dialogTitle = "Añadir juego";
         [ObservableProperty] private string _barcode = string.Empty;
@@ -82,14 +89,21 @@ namespace VideoGameLibrary.ViewModels
                 return;
             }
 
-            IsSearching = true;
-            var candidates = await _api.SearchCandidatesByBarcodeAsync(barcode);
-            IsSearching = false;
+            try
+            {
+                IsSearching = true;
+                var candidates = await _api.SearchCandidatesByBarcodeAsync(barcode, _cts.Token);
+                IsSearching = false;
 
-            var game = await ResolveCandidateAsync(candidates,
-                "Código de barras no encontrado. Escribe el título y pulsa \"Buscar por nombre\".",
-                ApplyBarcodeResultAsync);
-            if (game != null) await ApplyBarcodeResultAsync(game);
+                var game = await ResolveCandidateAsync(candidates,
+                    "Código de barras no encontrado. Escribe el título y pulsa \"Buscar por nombre\".",
+                    ApplyBarcodeResultAsync);
+                if (game != null) await ApplyBarcodeResultAsync(game);
+            }
+            catch (OperationCanceledException)
+            {
+                // El diálogo se cerró mientras la búsqueda estaba en curso — nada que actualizar.
+            }
         }
 
         [RelayCommand]
@@ -102,13 +116,20 @@ namespace VideoGameLibrary.ViewModels
                 return;
             }
 
-            IsSearching = true;
-            var candidates = await _api.SearchByNameCandidatesAsync(Title);
-            IsSearching = false;
+            try
+            {
+                IsSearching = true;
+                var candidates = await _api.SearchByNameCandidatesAsync(Title, _cts.Token);
+                IsSearching = false;
 
-            var game = await ResolveCandidateAsync(candidates, "No se encontró información para ese título.",
-                ApplyNameResultAsync);
-            if (game != null) await ApplyNameResultAsync(game);
+                var game = await ResolveCandidateAsync(candidates, "No se encontró información para ese título.",
+                    ApplyNameResultAsync);
+                if (game != null) await ApplyNameResultAsync(game);
+            }
+            catch (OperationCanceledException)
+            {
+                // El diálogo se cerró mientras la búsqueda estaba en curso — nada que actualizar.
+            }
         }
 
         // Sobrescribe los campos con el resultado de la búsqueda por código de barras
@@ -124,7 +145,7 @@ namespace VideoGameLibrary.ViewModels
             if (!string.IsNullOrEmpty(game.CoverUrl))
             {
                 IsSearching = true;
-                CoverData = await _api.DownloadCoverAsync(game.CoverUrl);
+                CoverData = await _api.DownloadCoverAsync(game.CoverUrl, _cts.Token);
                 IsSearching = false;
             }
             else
@@ -146,7 +167,7 @@ namespace VideoGameLibrary.ViewModels
             {
                 CoverUrl = game.CoverUrl;
                 IsSearching = true;
-                CoverData = await _api.DownloadCoverAsync(CoverUrl);
+                CoverData = await _api.DownloadCoverAsync(CoverUrl, _cts.Token);
                 IsSearching = false;
             }
         }
@@ -182,9 +203,20 @@ namespace VideoGameLibrary.ViewModels
         {
             if (_lastCandidates == null || _lastApply == null || PickCandidate == null) return;
 
-            var picked = await PickCandidate(_lastCandidates);
-            if (picked != null) await _lastApply(picked);
+            try
+            {
+                var picked = await PickCandidate(_lastCandidates);
+                if (picked != null) await _lastApply(picked);
+            }
+            catch (OperationCanceledException)
+            {
+                // El diálogo se cerró mientras se descargaba la portada del candidato elegido.
+            }
         }
+
+        // Llamado por la View al cerrarse (Cancelar, Guardar, X o Alt+F4) para no dejar una
+        // búsqueda o descarga de portada corriendo en segundo plano contra un diálogo ya cerrado.
+        public void CancelPendingOperations() => _cts.Cancel();
 
         [RelayCommand]
         private void Save()

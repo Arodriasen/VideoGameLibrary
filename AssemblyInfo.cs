@@ -5,7 +5,7 @@ using System.Windows;
 // sin tener que hacerlos públicos de cara a quien use la app como librería.
 [assembly: InternalsVisibleTo("VideoGameLibrary.Tests")]
 
-[assembly:ThemeInfo(
+[assembly: ThemeInfo(
     ResourceDictionaryLocation.None,            //where theme specific resource dictionaries are located
                                                 //(used if a resource is not found in the page,
                                                 // or application resource dictionaries)

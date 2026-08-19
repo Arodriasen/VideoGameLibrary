@@ -1,11 +1,11 @@
-using VideoGameLibrary.Services;
-using VideoGameLibrary.ViewModels;
-using Microsoft.Win32;
 using System;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
+using Microsoft.Win32;
+using VideoGameLibrary.Services;
+using VideoGameLibrary.ViewModels;
 
 namespace VideoGameLibrary.Views
 {

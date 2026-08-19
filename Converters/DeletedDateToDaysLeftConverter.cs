@@ -1,7 +1,7 @@
-using VideoGameLibrary.Services;
 using System;
 using System.Globalization;
 using System.Windows.Data;
+using VideoGameLibrary.Services;
 
 namespace VideoGameLibrary.Converters
 {

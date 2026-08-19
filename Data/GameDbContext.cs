@@ -1,6 +1,6 @@
-using VideoGameLibrary.Models;
-using Microsoft.EntityFrameworkCore;
 using System.IO;
+using Microsoft.EntityFrameworkCore;
+using VideoGameLibrary.Models;
 
 namespace VideoGameLibrary.Data
 {
