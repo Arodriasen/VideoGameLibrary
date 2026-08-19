@@ -24,6 +24,34 @@ jobs:
           winget install --id PostgreSQL.PostgreSQL.17 --silent --accept-package-agreements --accept-source-agreements --custom "--unattendedmodeui minimal --superpassword Admin123!"
         shell: pwsh
 
+      - name: Forzar contraseña de PostgreSQL a Admin123!
+        # windows-latest ya trae PostgreSQL preinstalado y en marcha (ver actions/runner-images).
+        # El paso anterior hace un "upgrade" sobre esa instalación en vez de una instalación limpia,
+        # así que --superpassword no se aplica y la contraseña real sigue siendo la de fábrica de la imagen.
+        # Aquí se fuerza a Admin123! sea cual sea esa contraseña de partida: se pone pg_hba.conf en modo
+        # trust temporalmente, se cambia la contraseña sin necesitar la antigua, y se revierte.
+        run: |
+          $svc = Get-Service -Name 'postgresql-x64-*' -ErrorAction Stop | Select-Object -First 1
+          Write-Host "Servicio PostgreSQL detectado: $($svc.Name)"
+          $version = $svc.Name -replace 'postgresql-x64-', ''
+          $dataDir = "C:\Program Files\PostgreSQL\$version\data"
+          $psql = "C:\Program Files\PostgreSQL\$version\bin\psql.exe"
+          $hba = Join-Path $dataDir 'pg_hba.conf'
+
+          Copy-Item $hba "$hba.bak" -Force
+          (Get-Content $hba) -replace 'scram-sha-256', 'trust' -replace '\bmd5\b', 'trust' | Set-Content $hba
+
+          Restart-Service $svc.Name
+          Start-Sleep -Seconds 5
+
+          & $psql -U postgres -h localhost -c "ALTER USER postgres WITH PASSWORD 'Admin123!';"
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo cambiar la contraseña de postgres" }
+
+          Copy-Item "$hba.bak" $hba -Force
+          Restart-Service $svc.Name
+          Start-Sleep -Seconds 5
+        shell: pwsh
+
       - name: Restaurar dependencias
         run: dotnet restore VideoGameLibrary.sln
 
