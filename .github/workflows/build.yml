@@ -33,10 +33,21 @@ jobs:
         run: |
           $svc = Get-Service -Name 'postgresql-x64-*' -ErrorAction Stop | Select-Object -First 1
           Write-Host "Servicio PostgreSQL detectado: $($svc.Name)"
-          $version = $svc.Name -replace 'postgresql-x64-', ''
-          $dataDir = "C:\Program Files\PostgreSQL\$version\data"
-          $psql = "C:\Program Files\PostgreSQL\$version\bin\psql.exe"
+
+          # No asumir la ruta del directorio de datos (en windows-latest vive fuera de
+          # "Program Files", p. ej. C:\PostgreSQL\14\data, y tras el "upgrade" de winget no se
+          # puede dar por hecho a qué ruta acaba apuntando) — se lee del ImagePath real del
+          # servicio de Windows, que siempre trae el ejecutable y el "-D <datadir>" reales.
+          $imagePath = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\$($svc.Name)" -ErrorAction Stop).ImagePath
+          Write-Host "ImagePath: $imagePath"
+
+          if ($imagePath -notmatch '^"([^"]+)"') { throw "No se pudo determinar el ejecutable de PostgreSQL desde ImagePath: $imagePath" }
+          $psql = Join-Path (Split-Path $Matches[1] -Parent) 'psql.exe'
+
+          if ($imagePath -notmatch '-D\s+"([^"]+)"') { throw "No se pudo determinar el directorio de datos de PostgreSQL desde ImagePath: $imagePath" }
+          $dataDir = $Matches[1]
           $hba = Join-Path $dataDir 'pg_hba.conf'
+          Write-Host "Directorio de datos: $dataDir"
 
           Copy-Item $hba "$hba.bak" -Force
           (Get-Content $hba) -replace 'scram-sha-256', 'trust' -replace '\bmd5\b', 'trust' | Set-Content $hba
