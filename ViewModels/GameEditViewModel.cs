@@ -25,6 +25,7 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private string _platform = string.Empty;
         [ObservableProperty] private string _publisher = string.Empty;
         [ObservableProperty] private string _genre = string.Empty;
+        [ObservableProperty] private string _tags = string.Empty;
         [ObservableProperty] private int? _year;
         [ObservableProperty] private string _coverUrl = string.Empty;
         [ObservableProperty] private byte[]? _coverData;
@@ -62,6 +63,7 @@ namespace VideoGameLibrary.ViewModels
             Platform = game.Platform;
             Publisher = game.Publisher;
             Genre = game.Genre;
+            Tags = game.Tags;
             Year = game.Year;
             CoverUrl = game.CoverUrl;
             CoverData = game.CoverData;
@@ -244,6 +246,7 @@ namespace VideoGameLibrary.ViewModels
                 Platform = Platform,
                 Publisher = Publisher,
                 Genre = Genre,
+                Tags = Tags,
                 Year = Year,
                 CoverUrl = CoverUrl,
                 CoverData = CoverData,

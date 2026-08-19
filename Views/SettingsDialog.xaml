@@ -134,7 +134,7 @@
                                Text="Importa juegos desde un CSV (separado por punto y coma) o Excel (.xlsx) con una fila de cabecera. A continuación podrás indicar qué columna del archivo corresponde a cada campo — si usan estos nombres se detectan solas, si no, las emparejas a mano. Solo &quot;Título&quot; es obligatorio:"/>
                     <Border Background="{DynamicResource MaterialDesignChipBackground}" CornerRadius="4" Padding="8" Margin="0,0,0,8">
                         <TextBlock TextWrapping="Wrap" FontSize="11" FontFamily="Consolas"
-                                   Text="Código de Barras · Título · Plataforma · Editorial · Género · Año · Puntuación · Notas · Jugado"/>
+                                   Text="Código de Barras · Título · Plataforma · Editorial · Género · Etiquetas · Año · Puntuación · Notas · Jugado"/>
                     </Border>
                     <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="11"
                                Foreground="{DynamicResource MaterialDesignBodyLight}"

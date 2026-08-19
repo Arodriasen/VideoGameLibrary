@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VideoGameLibrary.Models;
 
@@ -11,6 +13,7 @@ namespace VideoGameLibrary.ViewModels
         [ObservableProperty] private string _platform = string.Empty;
         [ObservableProperty] private string _publisher = string.Empty;
         [ObservableProperty] private string _genre = string.Empty;
+        [ObservableProperty] private string _tags = string.Empty;
         [ObservableProperty] private int? _year;
         [ObservableProperty] private string _coverUrl = string.Empty;
         [ObservableProperty] private byte[]? _coverData;
@@ -24,6 +27,10 @@ namespace VideoGameLibrary.ViewModels
         public Action? OnSelectionChanged { get; set; }
         partial void OnIsSelectedChanged(bool value) => OnSelectionChanged?.Invoke();
 
+        // Para los chips de la tarjeta — se recalcula cuando cambia Tags (p.ej. tras editar el juego)
+        public List<string> TagList => MainViewModel.SplitTags(Tags).ToList();
+        partial void OnTagsChanged(string value) => OnPropertyChanged(nameof(TagList));
+
         public static GameViewModel FromModel(Game g) => new()
         {
             Id = g.Id,
@@ -32,6 +39,7 @@ namespace VideoGameLibrary.ViewModels
             Platform = g.Platform,
             Publisher = g.Publisher,
             Genre = g.Genre,
+            Tags = g.Tags,
             Year = g.Year,
             CoverUrl = g.CoverUrl,
             CoverData = g.CoverData,
@@ -49,6 +57,7 @@ namespace VideoGameLibrary.ViewModels
             Platform = Platform,
             Publisher = Publisher,
             Genre = Genre,
+            Tags = Tags,
             Year = Year,
             CoverUrl = CoverUrl,
             CoverData = CoverData,

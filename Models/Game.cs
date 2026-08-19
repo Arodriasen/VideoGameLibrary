@@ -12,6 +12,7 @@ namespace VideoGameLibrary.Models
         public string Platform { get; set; } = string.Empty;
         public string Publisher { get; set; } = string.Empty;
         public string Genre { get; set; } = string.Empty;
+        public string Tags { get; set; } = string.Empty;
         public int? Year { get; set; }
         public string CoverUrl { get; set; } = string.Empty;
         public byte[]? CoverData { get; set; }

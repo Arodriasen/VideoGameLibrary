@@ -25,6 +25,7 @@ namespace VideoGameLibrary.Services
             ("plataforma", "Plataforma", false),
             ("editorial", "Editorial", false),
             ("género", "Género", false),
+            ("etiquetas", "Etiquetas", false),
             ("año", "Año", false),
             ("puntuación", "Puntuación", false),
             ("notas", "Notas", false),
@@ -144,6 +145,7 @@ namespace VideoGameLibrary.Services
             game.Platform = field("plataforma")?.Trim() ?? string.Empty;
             game.Publisher = field("editorial")?.Trim() ?? string.Empty;
             game.Genre = field("género")?.Trim() ?? string.Empty;
+            game.Tags = field("etiquetas")?.Trim() ?? string.Empty;
             game.Notes = field("notas")?.Trim() ?? string.Empty;
             game.Year = ParseYear(field("año"));
             game.Rating = ParseRating(field("puntuación"));

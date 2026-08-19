@@ -31,6 +31,7 @@ namespace VideoGameLibrary.ViewModels
         public ObservableCollection<StatsRow> ByPlatform { get; } = new();
         public ObservableCollection<StatsRow> ByGenre { get; } = new();
         public ObservableCollection<StatsRow> ByYearAdded { get; } = new();
+        public ObservableCollection<StatsRow> ByTags { get; } = new();
 
         public StatsViewModel(GameRepository repo)
         {
@@ -65,6 +66,10 @@ namespace VideoGameLibrary.ViewModels
             ByYearAdded.Clear();
             foreach (var row in BuildYearAddedRows(games))
                 ByYearAdded.Add(row);
+
+            ByTags.Clear();
+            foreach (var row in BuildRows(games, g => MainViewModel.SplitTags(g.Tags)))
+                ByTags.Add(row);
 
             IsLoading = false;
         }

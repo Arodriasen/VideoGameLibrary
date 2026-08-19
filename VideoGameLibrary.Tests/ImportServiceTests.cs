@@ -237,6 +237,16 @@ namespace VideoGameLibrary.Tests
         }
 
         [Fact]
+        public void Columna_Etiquetas_se_lee_igual_que_Genero()
+        {
+            var path = WriteCsv("Título;Etiquetas\nCeleste;favorito, para vender\n");
+
+            var games = new ImportService().ParseFile(path);
+
+            Assert.Equal("favorito, para vender", Assert.Single(games).Tags);
+        }
+
+        [Fact]
         public void Fila_sin_titulo_se_descarta()
         {
             var path = WriteCsv(

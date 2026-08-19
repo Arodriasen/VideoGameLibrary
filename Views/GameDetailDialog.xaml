@@ -14,6 +14,7 @@
         <conv:NullToVisibilityConverter x:Key="NullToVis"/>
         <conv:RatingToStarKindConverter x:Key="RatingToStar"/>
         <conv:BoolToYesNoConverter x:Key="PlayedToText"/>
+        <conv:IntZeroToVisibilityConverter x:Key="ZeroToVis"/>
     </Window.Resources>
 
     <Grid Margin="24">
@@ -71,6 +72,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Plataforma" FontWeight="Medium" Margin="0,0,0,8" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
@@ -90,6 +92,26 @@
 
                     <TextBlock Grid.Row="5" Grid.Column="0" Text="Jugado" FontWeight="Medium" Margin="0,0,0,8" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
                     <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Played, Converter={StaticResource PlayedToText}}" Margin="0,0,0,8"/>
+
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Etiquetas" FontWeight="Medium" Margin="0,0,0,8"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Visibility="{Binding TagList.Count, Converter={StaticResource ZeroToVis}, ConverterParameter=invert}"/>
+                    <ItemsControl Grid.Row="6" Grid.Column="1" Margin="0,0,0,8" ItemsSource="{Binding TagList}"
+                                  Visibility="{Binding TagList.Count, Converter={StaticResource ZeroToVis}, ConverterParameter=invert}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource MaterialDesignChipBackground}" CornerRadius="10"
+                                        Padding="8,2" Margin="0,0,6,6">
+                                    <TextBlock Text="{Binding}" FontSize="11"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </Grid>
 
                 <StackPanel Margin="0,8,0,0">

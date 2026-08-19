@@ -149,4 +149,20 @@ namespace VideoGameLibrary.Tests
             Assert.Empty(MainViewModel.SplitGenres(""));
         }
     }
+
+    // Mismo criterio que SplitGenres, para las etiquetas libres del usuario.
+    public class MainViewModelSplitTagsTests
+    {
+        [Fact]
+        public void SplitTags_separa_por_comas_y_recorta_espacios()
+        {
+            Assert.Equal(new[] { "favorito", "para vender" }, MainViewModel.SplitTags("favorito,  para vender "));
+        }
+
+        [Fact]
+        public void SplitTags_con_texto_vacio_no_devuelve_nada()
+        {
+            Assert.Empty(MainViewModel.SplitTags(""));
+        }
+    }
 }

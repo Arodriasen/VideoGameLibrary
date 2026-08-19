@@ -109,6 +109,12 @@
                          Text="{Binding Genre, UpdateSourceTrigger=PropertyChanged}"/>
 
                 <TextBox Margin="0,0,0,12"
+                         md:HintAssist.Hint="Etiquetas (separadas por comas)"
+                         md:HintAssist.HelperText="Libres: favorito, para vender, edición coleccionista..."
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         Text="{Binding Tags, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBox Margin="0,0,0,12"
                          md:HintAssist.Hint="Año"
                          Style="{StaticResource MaterialDesignOutlinedTextBox}"
                          Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"/>

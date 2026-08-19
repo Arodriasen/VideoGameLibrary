@@ -13,7 +13,7 @@ namespace VideoGameLibrary.Services
             using var workbook = new XLWorkbook();
             var sheet = workbook.Worksheets.Add("Colección");
 
-            string[] headers = { "Código de Barras", "Título", "Plataforma", "Editorial", "Género", "Año", "Puntuación", "Notas", "Fecha Añadido" };
+            string[] headers = { "Código de Barras", "Título", "Plataforma", "Editorial", "Género", "Etiquetas", "Año", "Puntuación", "Notas", "Fecha Añadido" };
             for (int col = 0; col < headers.Length; col++)
             {
                 sheet.Cell(1, col + 1).Value = headers[col];
@@ -28,12 +28,13 @@ namespace VideoGameLibrary.Services
                 sheet.Cell(row, 3).Value = g.Platform;
                 sheet.Cell(row, 4).Value = g.Publisher;
                 sheet.Cell(row, 5).Value = g.Genre;
+                sheet.Cell(row, 6).Value = g.Tags;
                 if (g.Year.HasValue)
-                    sheet.Cell(row, 6).Value = g.Year.Value;
+                    sheet.Cell(row, 7).Value = g.Year.Value;
                 if (g.Rating > 0)
-                    sheet.Cell(row, 7).Value = g.Rating;
-                sheet.Cell(row, 8).Value = g.Notes;
-                sheet.Cell(row, 9).Value = g.AddedDate.ToString("dd/MM/yyyy");
+                    sheet.Cell(row, 8).Value = g.Rating;
+                sheet.Cell(row, 9).Value = g.Notes;
+                sheet.Cell(row, 10).Value = g.AddedDate.ToString("dd/MM/yyyy");
                 row++;
             }
 
@@ -45,12 +46,12 @@ namespace VideoGameLibrary.Services
         {
             var sb = new StringBuilder();
             sb.AppendLine("sep=;");
-            sb.AppendLine("Código de Barras;Título;Plataforma;Editorial;Género;Año;Puntuación;Notas;Fecha Añadido");
+            sb.AppendLine("Código de Barras;Título;Plataforma;Editorial;Género;Etiquetas;Año;Puntuación;Notas;Fecha Añadido");
 
             foreach (var g in games)
             {
                 var rating = g.Rating > 0 ? g.Rating.ToString() : "";
-                sb.AppendLine($"\"{Escape(g.Barcode)}\";\"{Escape(g.Title)}\";\"{Escape(g.Platform)}\";\"{Escape(g.Publisher)}\";\"{Escape(g.Genre)}\";\"{Escape(g.Year?.ToString())}\";\"{rating}\";\"{Escape(g.Notes)}\";\"{g.AddedDate:dd/MM/yyyy}\"");
+                sb.AppendLine($"\"{Escape(g.Barcode)}\";\"{Escape(g.Title)}\";\"{Escape(g.Platform)}\";\"{Escape(g.Publisher)}\";\"{Escape(g.Genre)}\";\"{Escape(g.Tags)}\";\"{Escape(g.Year?.ToString())}\";\"{rating}\";\"{Escape(g.Notes)}\";\"{g.AddedDate:dd/MM/yyyy}\"");
             }
 
             File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);

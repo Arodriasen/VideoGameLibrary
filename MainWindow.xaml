@@ -115,6 +115,16 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
 
+                                    <TextBlock Text="Etiquetas" FontWeight="Medium" FontSize="11"
+                                               Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,12,0,4"/>
+                                    <ItemsControl ItemsSource="{Binding TagFilters}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Value}" IsChecked="{Binding IsSelected}" Margin="0,2"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
                                     <TextBlock Text="Año" FontWeight="Medium" FontSize="11"
                                                Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,12,0,4"/>
                                     <ItemsControl ItemsSource="{Binding YearFilters}">
@@ -355,6 +365,26 @@
                                         <md:PackIcon Width="12" Height="12" Foreground="#FFC107"
                                                      Kind="{Binding Rating, Converter={StaticResource RatingToStar}, ConverterParameter=5}"/>
                                     </StackPanel>
+
+                                    <!-- Altura fija (no crece con el nº de etiquetas) para que todas las
+                                         tarjetas midan igual bajo VirtualizingWrapPanel; las que no caben
+                                         en una línea se recortan (ClipToBounds), no se envuelven. -->
+                                    <ItemsControl Height="18" Margin="0,4,0,0" ItemsSource="{Binding TagList}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" ClipToBounds="True"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource MaterialDesignChipBackground}"
+                                                        CornerRadius="8" Padding="6,1" Margin="0,0,4,0">
+                                                    <TextBlock Text="{Binding}" FontSize="9"
+                                                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
 
                                 <!-- Botones acción -->
@@ -448,6 +478,22 @@
                                         <Run Text=" · "/>
                                         <Run Text="{Binding Year, Mode=OneWay}"/>
                                     </TextBlock>
+                                    <ItemsControl Margin="0,3,0,0" ItemsSource="{Binding TagList}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource MaterialDesignChipBackground}"
+                                                        CornerRadius="8" Padding="6,1" Margin="0,0,4,2">
+                                                    <TextBlock Text="{Binding}" FontSize="9"
+                                                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">

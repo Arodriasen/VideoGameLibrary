@@ -30,6 +30,7 @@ namespace VideoGameLibrary.ViewModels
 
         [ObservableProperty] private ObservableCollection<FilterOption> _platformFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _genreFilters = new();
+        [ObservableProperty] private ObservableCollection<FilterOption> _tagFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _yearFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _ratingFilters = new();
         [ObservableProperty] private ObservableCollection<FilterOption> _playedFilters = new();
@@ -135,6 +136,7 @@ namespace VideoGameLibrary.ViewModels
 
             PlatformFilters = RebuildFacet(PlatformFilters, scoped.Select(g => g.Platform));
             GenreFilters = RebuildFacet(GenreFilters, scoped.SelectMany(g => SplitGenres(g.Genre)));
+            TagFilters = RebuildFacet(TagFilters, scoped.SelectMany(g => SplitTags(g.Tags)));
             YearFilters = RebuildFacet(YearFilters, scoped.Where(g => g.Year.HasValue).Select(g => g.Year!.Value.ToString()));
             RatingFilters = RebuildRatingFacet(RatingFilters);
             PlayedFilters = RebuildFixedFacet(PlayedFilters, PlayedLabels);
@@ -164,6 +166,11 @@ namespace VideoGameLibrary.ViewModels
         internal static string[] SplitGenres(string genre) =>
             genre.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
+        // Las etiquetas son texto libre del usuario (no vienen de ninguna API), pero se guardan
+        // y se separan con el mismo criterio que el género: una cadena única separada por comas.
+        internal static string[] SplitTags(string tags) =>
+            tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
         private ObservableCollection<FilterOption> RebuildFacet(ObservableCollection<FilterOption> previous, IEnumerable<string> rawValues)
         {
             var previousSelected = previous.Where(f => f.IsSelected).Select(f => f.Value).ToHashSet();
@@ -181,6 +188,7 @@ namespace VideoGameLibrary.ViewModels
         {
             foreach (var f in PlatformFilters) f.IsSelected = false;
             foreach (var f in GenreFilters) f.IsSelected = false;
+            foreach (var f in TagFilters) f.IsSelected = false;
             foreach (var f in YearFilters) f.IsSelected = false;
             foreach (var f in RatingFilters) f.IsSelected = false;
             foreach (var f in PlayedFilters) f.IsSelected = false;
@@ -204,6 +212,7 @@ namespace VideoGameLibrary.ViewModels
 
             var selectedPlatforms = PlatformFilters.Where(f => f.IsSelected).Select(f => f.Value).ToHashSet();
             var selectedGenres = GenreFilters.Where(f => f.IsSelected).Select(f => f.Value).ToHashSet();
+            var selectedTags = TagFilters.Where(f => f.IsSelected).Select(f => f.Value).ToHashSet();
             var selectedYears = YearFilters.Where(f => f.IsSelected).Select(f => f.Value).ToHashSet();
             var selectedRatings = RatingFilters.Where(f => f.IsSelected).Select(f => RatingLabelToValue[f.Value]).ToHashSet();
             var selectedPlayed = PlayedFilters.Where(f => f.IsSelected).Select(f => PlayedLabelToValue[f.Value]).ToHashSet();
@@ -212,6 +221,8 @@ namespace VideoGameLibrary.ViewModels
                 filtered = filtered.Where(g => selectedPlatforms.Contains(g.Platform));
             if (selectedGenres.Count > 0)
                 filtered = filtered.Where(g => SplitGenres(g.Genre).Any(selectedGenres.Contains));
+            if (selectedTags.Count > 0)
+                filtered = filtered.Where(g => SplitTags(g.Tags).Any(selectedTags.Contains));
             if (selectedYears.Count > 0)
                 filtered = filtered.Where(g => g.Year.HasValue && selectedYears.Contains(g.Year.Value.ToString()));
             if (selectedRatings.Count > 0)
