@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:conv="clr-namespace:VideoGameLibrary.Converters"
-        Title="{Binding DialogTitle}" Height="765" Width="480"
+        Title="{Binding DialogTitle}" Height="825" Width="480"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{DynamicResource MaterialDesignPaper}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
@@ -109,8 +109,7 @@
                          Text="{Binding Genre, UpdateSourceTrigger=PropertyChanged}"/>
 
                 <TextBox Margin="0,0,0,12"
-                         md:HintAssist.Hint="Etiquetas (separadas por comas)"
-                         md:HintAssist.HelperText="Libres: favorito, para vender, edición coleccionista..."
+                         md:HintAssist.Hint="Etiquetas — libres, separadas por comas"
                          Style="{StaticResource MaterialDesignOutlinedTextBox}"
                          Text="{Binding Tags, UpdateSourceTrigger=PropertyChanged}"/>
 

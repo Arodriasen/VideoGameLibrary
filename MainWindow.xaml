@@ -367,24 +367,35 @@
                                     </StackPanel>
 
                                     <!-- Altura fija (no crece con el nº de etiquetas) para que todas las
-                                         tarjetas midan igual bajo VirtualizingWrapPanel; las que no caben
-                                         en una línea se recortan (ClipToBounds), no se envuelven. -->
-                                    <ItemsControl Height="18" Margin="0,4,0,0" ItemsSource="{Binding TagList}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <StackPanel Orientation="Horizontal" ClipToBounds="True"/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="{DynamicResource MaterialDesignChipBackground}"
-                                                        CornerRadius="8" Padding="6,1" Margin="0,0,4,0">
-                                                    <TextBlock Text="{Binding}" FontSize="9"
-                                                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                         tarjetas midan igual bajo VirtualizingWrapPanel. CardVisibleTags
+                                         (GameViewModel) ya decide cuántas etiquetas completas caben —
+                                         ClipToBounds se deja solo como red de seguridad, no como recorte
+                                         principal. El resto se resume en "+N"; la ficha de detalle
+                                         siempre muestra la lista completa. -->
+                                    <StackPanel Orientation="Horizontal" Height="18" Margin="0,4,0,0">
+                                        <ItemsControl ItemsSource="{Binding CardVisibleTags}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" ClipToBounds="True"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,6,0" VerticalAlignment="Center">
+                                                        <md:PackIcon Kind="Tag" Width="10" Height="10" VerticalAlignment="Center"
+                                                                     Foreground="{DynamicResource MaterialDesign.Brush.Primary}"/>
+                                                        <TextBlock Text="{Binding}" FontSize="9" Margin="2,0,0,0" VerticalAlignment="Center"
+                                                                   MaxWidth="80" TextTrimming="CharacterEllipsis"
+                                                                   Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="{Binding CardHiddenTagCount, StringFormat='+{0}'}" FontSize="9"
+                                                   FontWeight="Medium" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource MaterialDesign.Brush.Primary}"
+                                                   Visibility="{Binding HasHiddenTags, Converter={StaticResource BoolToVisConv}}"/>
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <!-- Botones acción -->
@@ -486,11 +497,12 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Background="{DynamicResource MaterialDesignChipBackground}"
-                                                        CornerRadius="8" Padding="6,1" Margin="0,0,4,2">
-                                                    <TextBlock Text="{Binding}" FontSize="9"
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,10,2" VerticalAlignment="Center">
+                                                    <md:PackIcon Kind="Tag" Width="10" Height="10" VerticalAlignment="Center"
+                                                                 Foreground="{DynamicResource MaterialDesign.Brush.Primary}"/>
+                                                    <TextBlock Text="{Binding}" FontSize="9" Margin="2,0,0,0" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource MaterialDesignBodyLight}"/>
-                                                </Border>
+                                                </StackPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
