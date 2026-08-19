@@ -2,7 +2,9 @@
 
 ![Build](https://github.com/Arodriasen/VideoGameLibrary/actions/workflows/build.yml/badge.svg)
 
-Aplicación de escritorio para Windows que permite catalogar tu colección personal de videojuegos escaneando el código de barras (UPC/EAN) de la caja. Busca automáticamente título, plataforma, género, año y portada, y guarda todo en una base de datos local (SQLite) en tu propio equipo.
+Aplicación de escritorio para Windows que permite catalogar tu colección personal de videojuegos escaneando el código de barras (UPC/EAN) de la caja. Busca automáticamente título, plataforma, género, año y portada, y guarda todo en una base de datos PostgreSQL en la nube (por ejemplo [Neon](https://neon.tech), gratis), pensada para poder acceder a la misma colección desde varios dispositivos (incluida una futura versión móvil).
+
+> ¿Buscas la versión sin nube, con la colección en un archivo SQLite local? Está en [VideoGameLibraryLocal](https://github.com/Arodriasen/VideoGameLibraryLocal).
 
 ## Características
 
@@ -15,11 +17,11 @@ Aplicación de escritorio para Windows que permite catalogar tu colección perso
 - Papelera: los juegos eliminados se conservan 7 días antes de borrarse para siempre, con opción de restaurarlos mientras tanto.
 - Estadísticas de la colección (icono de gráfico en la barra inferior): totales, por plataforma, por género, por etiqueta y progreso de altas por año. La ventana se puede redimensionar.
 - Importación desde Excel/CSV (columnas identificadas por nombre, no por posición), con vista previa antes de importar que avisa de duplicados. Exportación de la colección a Excel (.xlsx) o CSV.
-- Copia de seguridad de la base de datos con un clic desde Ajustes, mantenimiento (compactar/VACUUM) y un detector de posibles duplicados en la colección.
+- Detector de posibles duplicados en la colección.
 - Tema claro/oscuro.
 - Registro de errores dentro de la app (icono ⚠ en la barra de herramientas) para diagnosticar problemas sin depurador.
 - Aviso automático dentro de la app cuando hay una versión más nueva disponible en GitHub, con acceso directo a la descarga.
-- Todos los datos se guardan localmente: no hay cuentas ni servidores propios.
+- La base de datos es tu propio proyecto en Neon (u otro Postgres compatible): nadie más tiene acceso, no hay ningún servidor propio de la app de por medio. Requiere conexión a internet — no hay modo sin conexión.
 
 ## Requisitos
 
@@ -53,7 +55,21 @@ También puedes abrir `VideoGameLibrary.sln` directamente con Visual Studio 2022
 
 ## Primer uso
 
-Al arrancar por primera vez, la app te pedirá elegir o crear el archivo de base de datos (`.db`) donde se guardará tu colección, y te abrirá la ventana de Ajustes para introducir claves de API (todas opcionales, ver más abajo). Puedes omitir este paso y añadirlas más tarde desde el icono de engranaje de la barra de herramientas.
+Al arrancar por primera vez, la app te pedirá la cadena de conexión de tu base de datos (ver [Configurar la base de datos](#configurar-la-base-de-datos) más abajo) y te dejará introducir claves de API (todas opcionales, ver más abajo) en la misma ventana de Ajustes. Las claves de API puedes omitirlas y añadirlas más tarde desde el icono de engranaje de la barra de herramientas; la cadena de conexión es obligatoria, la app no funciona sin ella.
+
+## Configurar la base de datos
+
+La app necesita una base de datos PostgreSQL en la nube — [Neon](https://neon.tech) tiene un plan gratuito permanente (sin tarjeta) que sobra para una colección personal:
+
+1. Crea una cuenta en [neon.tech](https://neon.tech) y un proyecto nuevo (elige la región más cercana).
+2. No hace falta activar nada más (ni "Neon Auth" ni ninguna otra opción de backend) — solo la base de datos Postgres.
+3. En el dashboard del proyecto, pestaña **Connection string**, copia la cadena en formato **.NET/Npgsql**, o adapta la estándar (`postgresql://usuario:contraseña@host/basededatos?sslmode=require`) a este formato:
+   ```
+   Host=<host>;Database=<basededatos>;Username=<usuario>;Password=<contraseña>;SSL Mode=Require
+   ```
+4. Pégala en Ajustes → "Conexión a la base de datos" → GUARDAR Y CONECTAR. La app crea el esquema automáticamente la primera vez.
+
+La cadena de conexión se guarda solo en tu equipo (cifrada con DPAPI, igual que las claves de API — ver más abajo).
 
 ## Claves de API (opcionales)
 
@@ -66,11 +82,11 @@ La app funciona sin ninguna clave: el escaneo usará únicamente UPCitemdb, que 
 | [RAWG](https://rawg.io/apidocs) | Enriquecimiento por nombre, segunda fuente | Clave gratuita en rawg.io |
 | [TheGamesDB](https://thegamesdb.net/) | Portada como último recurso | Clave gratuita solicitándola en su foro |
 
-Ninguna clave se sube a ningún sitio: se guardan solo en tu equipo, en `%AppData%\VideoGameLibrary\config.json`, cifradas con la protección de datos de Windows (DPAPI) ligada a tu usuario. Solo se pueden descifrar iniciando sesión con ese mismo usuario de Windows en este equipo; si compartes el equipo pero cada persona tiene su propia cuenta de Windows, las claves de una no son legibles desde la otra.
+Ninguna clave (ni la cadena de conexión) se sube a ningún sitio: se guardan solo en tu equipo, en `%AppData%\VideoGameLibrary\config.json`, cifradas con la protección de datos de Windows (DPAPI) ligada a tu usuario. Solo se pueden descifrar iniciando sesión con ese mismo usuario de Windows en este equipo; si compartes el equipo pero cada persona tiene su propia cuenta de Windows, las claves de una no son legibles desde la otra.
 
 ## Tecnologías
 
-WPF (.NET 8), Entity Framework Core + SQLite, CommunityToolkit.Mvvm, MaterialDesignInXAML, ClosedXML.
+WPF (.NET 8), Entity Framework Core + PostgreSQL (Npgsql), CommunityToolkit.Mvvm, MaterialDesignInXAML, ClosedXML.
 
 ## Licencia
 

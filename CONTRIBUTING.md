@@ -5,28 +5,33 @@ entorno, correr los tests y enviar cambios.
 
 ## Poner el proyecto en marcha
 
-1. Requisitos: Windows 10/11 de 64 bits y el [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+1. Requisitos: Windows 10/11 de 64 bits, el [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0),
+   y un proyecto Postgres gratuito en [Neon](https://neon.tech) (ver "Configurar la base de datos"
+   en el [README](README.md)) — la app no arranca sin una cadena de conexión.
 2. Clona el repositorio y abre `VideoGameLibrary.sln` con Visual Studio 2022, o desde consola:
    ```
    dotnet run --project VideoGameLibrary.csproj
    ```
-3. Al primer arranque la app pedirá crear/elegir un archivo `.db` de prueba y te
-   abrirá Ajustes para las claves de API — todas son opcionales, puedes omitirlas
-   (ver la tabla de claves en el [README](README.md)).
+3. Al primer arranque la app pedirá la cadena de conexión y te dejará añadir claves de
+   API — todas son opcionales, puedes omitirlas (ver la tabla de claves en el [README](README.md)).
 
 ## Correr los tests
 
 El proyecto `VideoGameLibrary.Tests` (xUnit) cubre `ImportService`, `GameRepository`,
 `MainViewModel` y las utilidades internas de `GameApiService` (normalización de código
-de barras, extracción de año, etc.):
+de barras, extracción de año, etc.). Los tests de `GameRepository`/`MainViewModel` usan
+una base de datos PostgreSQL **local** (no Neon): instala PostgreSQL (por ejemplo
+`winget install PostgreSQL.PostgreSQL.17`) con el rol `postgres` y contraseña `Admin123!`
+(la que usan los tests y el CI — ver connection string en `GameRepositoryTests.cs`), o
+cambia esa contraseña en ambos sitios si prefieres otra:
 
 ```
 dotnet test VideoGameLibrary.Tests\VideoGameLibrary.Tests.csproj
 ```
 
-El CI (`.github/workflows/build.yml`) compila, verifica el formato y corre estos tests
-en cada push a `master`/`features/*` y en cada Pull Request contra `master` — un PR con
-el build en rojo no se puede fusionar con garantías.
+El CI (`.github/workflows/build.yml`) instala PostgreSQL en el runner, compila, verifica
+el formato y corre estos tests en cada push a `master`/`features/*` y en cada Pull Request
+contra `master` — un PR con el build en rojo no se puede fusionar con garantías.
 
 ## Estilo de código
 
@@ -51,8 +56,8 @@ dotnet format VideoGameLibrary.sln
 ## Antes de abrir un Pull Request
 
 - Que el proyecto compile y los tests pasen en local (`dotnet build` / `dotnet test`).
-- No incluir claves de API, rutas de disco personales, ni el archivo `config.json` ni
-  ninguna base de datos `.db` propia — todo eso vive fuera del repo (ver `.gitignore`).
+- No incluir claves de API, cadenas de conexión reales (Neon u otras), rutas de disco
+  personales, ni el archivo `config.json` — todo eso vive fuera del repo (ver `.gitignore`).
 - Describe brevemente el qué y el porqué del cambio en la descripción del PR.
 
 ## Reportar un bug o proponer una idea
