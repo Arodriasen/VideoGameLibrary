@@ -110,6 +110,14 @@
                                Text="Al borrar un juego, el archivo .db no reduce su tamaño ni elimina físicamente los datos hasta que se compacta. Esto es normal en SQLite y no afecta al funcionamiento de la app, pero puedes compactarlo manualmente cuando quieras."/>
                     <Button x:Name="BtnVacuum" Content="COMPACTAR BASE DE DATOS" Click="BtnVacuum_Click"
                             Style="{StaticResource MaterialDesignOutlinedButton}"
+                            HorizontalAlignment="Left" Margin="0,0,0,16"
+                            md:ButtonAssist.CornerRadius="4"/>
+
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="12"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Text="Busca juegos que probablemente estén repetidos en tu colección (mismo código de barras, o mismo título y plataforma si no lo tienen), por ejemplo tras añadir el mismo juego a mano dos veces."/>
+                    <Button x:Name="BtnFindDuplicates" Content="BUSCAR DUPLICADOS" Click="BtnFindDuplicates_Click"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
                             HorizontalAlignment="Left"
                             md:ButtonAssist.CornerRadius="4"/>
                 </StackPanel>

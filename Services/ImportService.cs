@@ -205,6 +205,28 @@ namespace VideoGameLibrary.Services
         private static string TitleKey(string title, string platform) =>
             $"{title.Trim().ToLowerInvariant()}|{platform.Trim().ToLowerInvariant()}";
 
+        // ── Duplicados dentro de la colección ya guardada (a diferencia de BuildPreview, que
+        // compara un archivo a importar contra la colección, esto compara la colección consigo
+        // misma) ──────────────────────────────────────────────────────────────────────────────
+        // Mismo criterio de coincidencia que BuildPreview: código de barras (normalizando
+        // UPC-A/EAN-13, que son el mismo producto salvo un "0" inicial) o título+plataforma si
+        // no hay código de barras. La wishlist y la colección se comparan por separado, ya que
+        // tener el mismo juego en ambas a la vez es un estado válido (pendiente de mover), no un
+        // duplicado. Cada grupo se devuelve ordenado por fecha de alta (el más antiguo primero).
+        public static List<List<Game>> FindDuplicateGroups(List<Game> games)
+        {
+            return games
+                .GroupBy(g => (g.IsWishlist, Key: !string.IsNullOrEmpty(g.Barcode)
+                    ? "B:" + CanonicalBarcode(g.Barcode!)
+                    : "T:" + TitleKey(g.Title, g.Platform)))
+                .Where(group => group.Count() > 1)
+                .Select(group => group.OrderBy(g => g.AddedDate).ToList())
+                .ToList();
+        }
+
+        private static string CanonicalBarcode(string barcode) =>
+            barcode.Length == 13 && barcode.StartsWith("0") ? barcode[1..] : barcode;
+
         private static string? GetField(List<string> fields, Dictionary<string, int> mapping, string fieldKey)
             => mapping.TryGetValue(fieldKey, out var idx) && idx < fields.Count ? fields[idx] : null;
 

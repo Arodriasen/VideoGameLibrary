@@ -99,6 +99,106 @@ namespace VideoGameLibrary.Tests
         }
     }
 
+    public class ImportServiceFindDuplicateGroupsTests
+    {
+        private static Game NewGame(string title, string platform = "Nintendo Switch", string? barcode = null,
+            bool isWishlist = false, DateTime? addedDate = null) =>
+            new()
+            {
+                Title = title,
+                Platform = platform,
+                Barcode = barcode,
+                IsWishlist = isWishlist,
+                AddedDate = addedDate ?? DateTime.Now
+            };
+
+        [Fact]
+        public void Sin_coincidencias_no_devuelve_ningun_grupo()
+        {
+            var games = new List<Game> { NewGame("A", barcode: "111"), NewGame("B", barcode: "222") };
+
+            Assert.Empty(ImportService.FindDuplicateGroups(games));
+        }
+
+        [Fact]
+        public void Mismo_barcode_exacto_forma_un_grupo()
+        {
+            var games = new List<Game> { NewGame("Zelda"), NewGame("Zelda (copia)") };
+            games[0].Barcode = "1234567890123";
+            games[1].Barcode = "1234567890123";
+
+            var groups = ImportService.FindDuplicateGroups(games);
+
+            Assert.Single(groups);
+            Assert.Equal(2, groups[0].Count);
+        }
+
+        [Fact]
+        public void UPC_A_y_EAN_13_del_mismo_producto_se_agrupan_pese_al_cero_inicial()
+        {
+            var games = new List<Game>
+            {
+                NewGame("Mario Kart 8", barcode: "012345678905"), // UPC-A, 12 dígitos
+                NewGame("Mario Kart 8", barcode: "0012345678905") // EAN-13 con "0" inicial
+            };
+
+            var groups = ImportService.FindDuplicateGroups(games);
+
+            Assert.Single(groups);
+        }
+
+        [Fact]
+        public void Sin_barcode_agrupa_por_titulo_y_plataforma()
+        {
+            var games = new List<Game>
+            {
+                NewGame("Celeste", "PC"),
+                NewGame("celeste", "pc") // mayúsculas/espacios distintos
+            };
+
+            var groups = ImportService.FindDuplicateGroups(games);
+
+            Assert.Single(groups);
+        }
+
+        [Fact]
+        public void Mismo_titulo_en_otra_plataforma_no_se_agrupa()
+        {
+            var games = new List<Game> { NewGame("Hollow Knight", "PC"), NewGame("Hollow Knight", "Nintendo Switch") };
+
+            Assert.Empty(ImportService.FindDuplicateGroups(games));
+        }
+
+        [Fact]
+        public void Wishlist_y_coleccion_no_se_agrupan_entre_si()
+        {
+            var games = new List<Game>
+            {
+                NewGame("Celeste", "PC", isWishlist: false),
+                NewGame("Celeste", "PC", isWishlist: true)
+            };
+
+            Assert.Empty(ImportService.FindDuplicateGroups(games));
+        }
+
+        [Fact]
+        public void Grupo_se_ordena_por_fecha_de_alta_ascendente()
+        {
+            var games = new List<Game>
+            {
+                NewGame("Celeste", "PC", addedDate: new DateTime(2026, 3, 1)),
+                NewGame("Celeste", "PC", addedDate: new DateTime(2025, 1, 1)),
+                NewGame("Celeste", "PC", addedDate: new DateTime(2025, 6, 1))
+            };
+
+            var group = Assert.Single(ImportService.FindDuplicateGroups(games));
+
+            Assert.Equal(new DateTime(2025, 1, 1), group[0].AddedDate);
+            Assert.Equal(new DateTime(2025, 6, 1), group[1].AddedDate);
+            Assert.Equal(new DateTime(2026, 3, 1), group[2].AddedDate);
+        }
+    }
+
     public class ImportServiceParseCsvTests : IDisposable
     {
         private readonly List<string> _tempFiles = new();

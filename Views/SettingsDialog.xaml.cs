@@ -186,6 +186,37 @@ namespace VideoGameLibrary.Views
             }
         }
 
+        private async void BtnFindDuplicates_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var all = await App.Repository.GetAllAsync();
+                var groups = ImportService.FindDuplicateGroups(all);
+
+                if (groups.Count == 0)
+                {
+                    await AppDialogService.ShowInfoAsync("SettingsDialogHost",
+                        "No se han encontrado posibles duplicados en tu colección.", "Buscar duplicados");
+                    return;
+                }
+
+                var dlg = new DuplicatesDialog(groups) { Owner = this };
+                if (dlg.ShowDialog() != true || dlg.SelectedIds.Count == 0) return;
+
+                foreach (var id in dlg.SelectedIds)
+                    await App.Repository.DeleteAsync(id);
+
+                await AppDialogService.ShowInfoAsync("SettingsDialogHost",
+                    $"{dlg.SelectedIds.Count} juego(s) enviados a la papelera. Puedes restaurarlos desde ahí si te equivocaste.",
+                    "Buscar duplicados");
+            }
+            catch (Exception ex)
+            {
+                LoggingService.LogError("Buscar duplicados en la colección", ex);
+                await AppDialogService.ShowErrorAsync("SettingsDialogHost", $"No se ha podido completar la búsqueda:\n{ex.Message}");
+            }
+        }
+
         private async void BtnImport_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog
