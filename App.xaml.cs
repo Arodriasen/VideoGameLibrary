@@ -94,6 +94,15 @@ namespace VideoGameLibrary
 
                 var mainVm = new MainViewModel(Repository, _apiService);
                 var mainWindow = new MainWindow(mainVm);
+
+                // App.xaml usa ShutdownMode="OnExplicitShutdown" para que cerrar el diálogo de
+                // Ajustes del primer arranque (única ventana abierta en ese momento) no cierre la
+                // app entera antes de llegar aquí (era exactamente lo que pasaba con el valor por
+                // defecto OnLastWindowClose). A partir de aquí, MainWindow pasa a comportarse como
+                // siempre: cerrarla cierra la app.
+                MainWindow = mainWindow;
+                ShutdownMode = ShutdownMode.OnMainWindowClose;
+
                 mainWindow.Show();
 
                 _ = CheckForUpdatesAsync(mainVm);

@@ -42,8 +42,37 @@ namespace VideoGameLibrary.Views
             }
         }
 
-        private void BtnSave_Click(object sender, RoutedEventArgs e)
+        private async void BtnSave_Click(object sender, RoutedEventArgs e)
         {
+            // Si el usuario rellena la cadena de conexión y pulsa directamente este botón
+            // (sin pasar antes por "GUARDAR Y CONECTAR" junto al campo), App.Repository
+            // seguiría sin asignar: cerrar el diálogo en ese estado hace que OnStartup lo
+            // interprete como que no hay conexión y cierre la app sin avisar. Se conecta aquí
+            // también si hace falta, para que este botón funcione solo sin depender del otro.
+            if (App.Repository == null)
+            {
+                var connectionString = TxtConnectionString.Text.Trim();
+                if (connectionString.Length == 0)
+                {
+                    await AppDialogService.ShowWarningAsync("SettingsDialogHost",
+                        "Introduce la cadena de conexión de tu base de datos en Neon antes de continuar.",
+                        "Conexión a la base de datos");
+                    return;
+                }
+
+                try
+                {
+                    await App.ReconnectAsync(connectionString);
+                }
+                catch (Exception ex)
+                {
+                    LoggingService.LogError("Conectar con la base de datos Neon", ex);
+                    await AppDialogService.ShowErrorAsync("SettingsDialogHost",
+                        $"No se ha podido conectar con la base de datos. Revisa la cadena de conexión y tu conexión a internet:\n{ex.Message}");
+                    return;
+                }
+            }
+
             App.SaveApiKeys(
                 TxtScanDex.Text.Trim(),
                 TxtIgdbClientId.Text.Trim(),
