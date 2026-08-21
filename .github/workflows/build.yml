@@ -20,8 +20,18 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Instalar PostgreSQL local (para los tests de GameRepository/MainViewModel)
+        # windows-latest ya trae PostgreSQL preinstalado y en marcha (ver actions/runner-images) —
+        # si ya hay un servicio postgresql-x64-*, "winget install" lo detecta y en vez de instalar
+        # intenta un "upgrade" en el sitio; cuando no hay versión más nueva sale con código de error
+        # y rompe el job entero aunque no haga falta instalar nada. Por eso solo se instala si de
+        # verdad no hay ningún PostgreSQL ya arrancado en el runner.
         run: |
-          winget install --id PostgreSQL.PostgreSQL.17 --silent --accept-package-agreements --accept-source-agreements --custom "--unattendedmodeui minimal --superpassword Admin123!"
+          $existing = Get-Service -Name 'postgresql-x64-*' -ErrorAction SilentlyContinue
+          if ($existing) {
+            Write-Host "PostgreSQL ya viene preinstalado en el runner ($($existing.Name)) — se omite winget install."
+          } else {
+            winget install --id PostgreSQL.PostgreSQL.17 --silent --accept-package-agreements --accept-source-agreements --custom "--unattendedmodeui minimal --superpassword Admin123!"
+          }
         shell: pwsh
 
       - name: Forzar contraseña de PostgreSQL a Admin123!
