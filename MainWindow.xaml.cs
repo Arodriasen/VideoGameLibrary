@@ -44,6 +44,7 @@ namespace VideoGameLibrary
             FabSettings.Background = brush;
             FabWishlist.Background = brush;
             FabShortcuts.Background = brush;
+            FabCalendar.Background = brush;
         }
 
         private Task<Game?> ShowCandidatePickerAsync(List<Game> candidates)
@@ -118,6 +119,15 @@ namespace VideoGameLibrary
             dialog.ShowDialog();
         }
 
+        private async void BtnCalendar_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new CalendarDialog(new CalendarViewModel(App.Repository, App.ApiService)) { Owner = this };
+            dialog.ShowDialog();
+
+            if (dialog.Changed)
+                await Vm.LoadGamesAsync(); // por si se ha añadido algo a la colección o a la lista de deseos
+        }
+
         private void FabToggle_Click(object sender, MouseButtonEventArgs e)
         {
             Vm.IsFabOpen = !Vm.IsFabOpen;
@@ -143,6 +153,9 @@ namespace VideoGameLibrary
                     break;
                 case "shortcuts":
                     new ShortcutsDialog { Owner = this }.ShowDialog();
+                    break;
+                case "calendar":
+                    BtnCalendar_Click(sender, e);
                     break;
             }
         }

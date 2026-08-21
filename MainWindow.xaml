@@ -663,6 +663,12 @@
                         <md:PackIcon Kind="ChartBar" Width="18" Height="18" Foreground="White"
                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
+                    <Border x:Name="FabCalendar" Width="40" Height="40" CornerRadius="20" Margin="0,0,0,10"
+                            Cursor="Hand" Tag="calendar" MouseLeftButtonUp="FabOption_Click"
+                            md:ElevationAssist.Elevation="Dp3" ToolTip="Próximos lanzamientos">
+                        <md:PackIcon Kind="CalendarMonthOutline" Width="18" Height="18" Foreground="White"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
                     <Border x:Name="FabWishlist" Width="40" Height="40" CornerRadius="20" Margin="0,0,0,10"
                             Cursor="Hand" Tag="wishlist" MouseLeftButtonUp="FabOption_Click"
                             md:ElevationAssist.Elevation="Dp3">

@@ -348,6 +348,110 @@ namespace VideoGameLibrary.Services
             }
         }
 
+        // ── Calendario de próximos lanzamientos (IGDB release_dates) ───────────
+
+        // A diferencia de EnrichFromIgdbAsync/SearchIgdbCandidatesAsync (que consultan /games),
+        // esto consulta /release_dates directamente porque lo que interesa es la fecha concreta
+        // por plataforma, no el juego en sí.
+        public async Task<List<UpcomingRelease>> GetUpcomingReleasesAsync(
+            DateTime monthStartUtc, DateTime monthEndUtc, IEnumerable<int>? platformIds, CancellationToken ct = default)
+        {
+            try
+            {
+                var token = await GetIgdbTokenAsync(ct);
+                if (token == null) return new List<UpcomingRelease>();
+
+                var unixStart = new DateTimeOffset(monthStartUtc, TimeSpan.Zero).ToUnixTimeSeconds();
+                var unixEnd = new DateTimeOffset(monthEndUtc, TimeSpan.Zero).ToUnixTimeSeconds();
+
+                var ids = platformIds?.ToList();
+                var platformClause = ids != null && ids.Count > 0
+                    ? $" & platform = ({string.Join(",", ids)})"
+                    : string.Empty;
+
+                // Un mes normal (incluso restringido a las plataformas del filtro) puede superar
+                // fácilmente los 500 resultados que da IGDB por página — comprobado con datos
+                // reales: solo la primera quincena de un mes ya llegaba a 500, dejando el resto del
+                // mes sin pedir nunca. Hay que paginar con "offset" hasta agotar los resultados
+                // (o hasta MaxPages como límite de seguridad, nunca debería llegar tan lejos con un
+                // solo mes de rango).
+                const int pageSize = 500;
+                const int maxPages = 10;
+                var result = new List<UpcomingRelease>();
+
+                for (int page = 0; page < maxPages; page++)
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Post, "https://api.igdb.com/v4/release_dates");
+                    request.Headers.Add("Client-ID", _igdbClientId);
+                    request.Headers.Add("Authorization", $"Bearer {token}");
+                    // "sort" es imprescindible: sin un orden explícito, IGDB no garantiza el mismo
+                    // resultado entre dos llamadas idénticas — el mismo día podía mostrar
+                    // lanzamientos distintos cada vez que se reabría el calendario. Con "sort" ya
+                    // es estable, y además es lo que hace que paginar con offset tenga sentido
+                    // (páginas consecutivas, no resultados repetidos o huecos).
+                    request.Content = new StringContent(
+                        $"fields game.name,game.cover.url,platform.name,date; where date >= {unixStart} & date <= {unixEnd}{platformClause}; " +
+                        $"sort date asc; limit {pageSize}; offset {page * pageSize};");
+
+                    var response = await _http.SendAsync(request, ct);
+                    if (!response.IsSuccessStatusCode) break;
+
+                    var json = JArray.Parse(await response.Content.ReadAsStringAsync(ct));
+
+                    foreach (var item in json)
+                    {
+                        var title = item["game"]?["name"]?.ToString();
+                        var date = item["date"]?.Value<long?>();
+                        if (string.IsNullOrEmpty(title) || !date.HasValue) continue;
+
+                        var coverUrl = item["game"]?["cover"]?["url"]?.ToString();
+
+                        result.Add(new UpcomingRelease
+                        {
+                            Title = title,
+                            PlatformName = item["platform"]?["name"]?.ToString() ?? string.Empty,
+                            ReleaseDateUtc = DateTimeOffset.FromUnixTimeSeconds(date.Value).UtcDateTime,
+                            CoverUrl = string.IsNullOrEmpty(coverUrl) ? null : "https:" + coverUrl.Replace("t_thumb", "t_cover_small")
+                        });
+                    }
+
+                    if (json.Count < pageSize) break; // última página
+                }
+
+                // Se agrupa por título+fecha (no por plataforma) y se combinan las plataformas en
+                // una sola entrada — el mismo juego suele salir el mismo día en varias plataformas
+                // a la vez (reediciones/lanzamientos simultáneos), y mostrarlo repetido una vez por
+                // plataforma resultaba en listas con el mismo título varias veces seguidas. De paso
+                // esto también absorbe el caso original (IGDB repite la misma fila por región
+                // NA/EU/JP... con el campo de región casi siempre "worldwide", así que filtrar por
+                // región no sirve — comprobado contra la API real, no es un dato fiable aquí).
+                return result
+                    .GroupBy(r => (r.Title, Date: r.ReleaseDateUtc.Date))
+                    .Select(g =>
+                    {
+                        var first = g.First();
+                        var platforms = g.Select(r => r.PlatformName)
+                            .Where(p => !string.IsNullOrEmpty(p))
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase);
+                        return new UpcomingRelease
+                        {
+                            Title = first.Title,
+                            PlatformName = string.Join(", ", platforms),
+                            ReleaseDateUtc = first.ReleaseDateUtc,
+                            CoverUrl = g.Select(r => r.CoverUrl).FirstOrDefault(c => !string.IsNullOrEmpty(c))
+                        };
+                    })
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                if (ex is OperationCanceledException) throw;
+                LoggingService.LogError("IGDB — calendario de próximos lanzamientos", ex);
+                return new List<UpcomingRelease>();
+            }
+        }
+
         // RAWG — segunda fuente de enriquecimiento por nombre
         private async Task<bool> EnrichFromRawgAsync(Game game, CancellationToken ct)
         {
