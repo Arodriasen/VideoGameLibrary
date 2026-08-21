@@ -42,7 +42,19 @@ jobs:
         # trust temporalmente, se cambia la contraseña sin necesitar la antigua, y se revierte.
         run: |
           $svc = Get-Service -Name 'postgresql-x64-*' -ErrorAction Stop | Select-Object -First 1
-          Write-Host "Servicio PostgreSQL detectado: $($svc.Name)"
+          Write-Host "Servicio PostgreSQL detectado: $($svc.Name) (estado: $($svc.Status))"
+
+          # Get-Service solo confirma que el servicio EXISTE, no que esté arrancado — en este
+          # runner el servicio estaba registrado pero parado (pg_ctl reload falló después con
+          # "PID file does not exist", y antes Restart-Service fallaba al intentar arrancarlo
+          # desde ese mismo estado parado). Arrancarlo explícitamente y esperar a que esté
+          # Running antes de tocar pg_hba.conf/reload, en vez de asumir que ya estaba en marcha.
+          if ($svc.Status -ne 'Running') {
+            Write-Host "El servicio no estaba en marcha, arrancándolo..."
+            Start-Service $svc.Name
+            $svc.WaitForStatus('Running', (New-TimeSpan -Seconds 30))
+          }
+          Write-Host "Estado del servicio: $($svc.Status)"
 
           # No asumir la ruta del directorio de datos (en windows-latest vive fuera de
           # "Program Files", p. ej. C:\PostgreSQL\14\data, y tras el "upgrade" de winget no se
