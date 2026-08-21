@@ -6,6 +6,8 @@ Aplicación de escritorio para Windows que permite catalogar tu colección perso
 
 > ¿Buscas la versión sin nube, con la colección en un archivo SQLite local? Está en [VideoGameLibraryLocal](https://github.com/Arodriasen/VideoGameLibraryLocal).
 
+📖 Guía completa (primeros pasos, configurar la base de datos, claves de API, atajos de teclado, preguntas frecuentes) en la [wiki del proyecto](https://github.com/Arodriasen/VideoGameLibrary/wiki).
+
 ## Características
 
 - Alta rapidez escaneando el código de barras (con lector USB o escribiéndolo a mano), incluyendo un modo de escaneo rápido que añade el juego sin abrir ningún diálogo.
@@ -18,6 +20,7 @@ Aplicación de escritorio para Windows que permite catalogar tu colección perso
 - Estadísticas de la colección (icono de gráfico en la barra inferior): totales, por plataforma, por género, por etiqueta y progreso de altas por año. La ventana se puede redimensionar.
 - Importación desde Excel/CSV (columnas identificadas por nombre, no por posición), con vista previa antes de importar que avisa de duplicados. Exportación de la colección a Excel (.xlsx) o CSV.
 - Detector de posibles duplicados en la colección.
+- Calendario de próximos lanzamientos: consulta las novedades de IGDB por día, filtrando por las plataformas que ya tienes en tu colección (o cualquier otra), y añade o quita un lanzamiento de tu lista de deseos o de la colección directamente desde el propio calendario.
 - Tema claro/oscuro.
 - Registro de errores dentro de la app (icono ⚠ en la barra de herramientas) para diagnosticar problemas sin depurador.
 - Aviso automático dentro de la app cuando hay una versión más nueva disponible en GitHub, con acceso directo a la descarga.
