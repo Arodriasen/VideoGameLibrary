@@ -52,7 +52,9 @@ jobs:
           Write-Host "ImagePath: $imagePath"
 
           if ($imagePath -notmatch '^"([^"]+)"') { throw "No se pudo determinar el ejecutable de PostgreSQL desde ImagePath: $imagePath" }
-          $psql = Join-Path (Split-Path $Matches[1] -Parent) 'psql.exe'
+          $binDir = Split-Path $Matches[1] -Parent
+          $psql = Join-Path $binDir 'psql.exe'
+          $pgctl = Join-Path $binDir 'pg_ctl.exe'
 
           if ($imagePath -notmatch '-D\s+"([^"]+)"') { throw "No se pudo determinar el directorio de datos de PostgreSQL desde ImagePath: $imagePath" }
           $dataDir = $Matches[1]
@@ -62,15 +64,20 @@ jobs:
           Copy-Item $hba "$hba.bak" -Force
           (Get-Content $hba) -replace 'scram-sha-256', 'trust' -replace '\bmd5\b', 'trust' | Set-Content $hba
 
-          Restart-Service $svc.Name
-          Start-Sleep -Seconds 5
+          # pg_ctl reload en vez de Restart-Service: releer pg_hba.conf no necesita parar y
+          # volver a arrancar el servicio de Windows entero, solo que el postmaster ya en marcha
+          # reciba la señal de recarga — Restart-Service empezó a fallar de forma intermitente en
+          # el runner con "Cannot start service ... on computer '.'" (sin más detalle del SCM),
+          # y reload evita ese punto de fallo por completo al no tocar el estado del servicio.
+          & $pgctl reload -D "$dataDir"
+          Start-Sleep -Seconds 3
 
           & $psql -U postgres -h localhost -c "ALTER USER postgres WITH PASSWORD 'Admin123!';"
           if ($LASTEXITCODE -ne 0) { throw "No se pudo cambiar la contraseña de postgres" }
 
           Copy-Item "$hba.bak" $hba -Force
-          Restart-Service $svc.Name
-          Start-Sleep -Seconds 5
+          & $pgctl reload -D "$dataDir"
+          Start-Sleep -Seconds 3
         shell: pwsh
 
       - name: Restaurar dependencias
