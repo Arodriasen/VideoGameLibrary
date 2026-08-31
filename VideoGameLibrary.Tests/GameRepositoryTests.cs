@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using VideoGameLibrary.Data;
-using VideoGameLibrary.Models;
-using VideoGameLibrary.Services;
+using VideoGameLibrary.Domain.Entities;
+using VideoGameLibrary.Domain.Repositories;
+using VideoGameLibrary.Infrastructure.Persistence;
 
 namespace VideoGameLibrary.Tests
 {
@@ -117,7 +117,7 @@ namespace VideoGameLibrary.Tests
 
             // Simula que "Antiguo" lleva más días en la papelera que el periodo de retención
             var antiguo = await _db.Games.FindAsync(antiguoId);
-            antiguo!.DeletedDate = DateTime.Now.AddDays(-(GameRepository.TrashRetentionDays + 1));
+            antiguo!.DeletedDate = DateTime.Now.AddDays(-(IGameRepository.TrashRetentionDays + 1));
             await _db.SaveChangesAsync();
 
             var purged = await _repo.PurgeExpiredTrashAsync();

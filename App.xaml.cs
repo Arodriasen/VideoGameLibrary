@@ -7,18 +7,40 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
-using VideoGameLibrary.Data;
-using VideoGameLibrary.Services;
-using VideoGameLibrary.ViewModels;
+using VideoGameLibrary.Application.Abstractions;
+using VideoGameLibrary.Domain.Repositories;
+using VideoGameLibrary.Infrastructure.Accounts;
+using VideoGameLibrary.Infrastructure.ExternalApis;
+using VideoGameLibrary.Infrastructure.Logging;
+using VideoGameLibrary.Infrastructure.Persistence;
+using VideoGameLibrary.Presentation.Services;
+using VideoGameLibrary.Presentation.ViewModels;
+using VideoGameLibrary.Presentation.Views;
 
 namespace VideoGameLibrary
 {
-    public partial class App : Application
+    // Composition root: el único sitio del proyecto que conoce las cuatro capas a la vez y las
+    // conecta. Domain/Application no dependen de nada de aquí; Infrastructure implementa las
+    // interfaces de Application; Presentation solo ve esas interfaces (vía las propiedades
+    // estáticas de abajo), nunca los tipos concretos de Infrastructure.
+    public partial class App : System.Windows.Application
     {
-        public static GameRepository Repository { get; private set; } = null!;
-        private static GameApiService _apiService = null!;
-        public static GameApiService ApiService => _apiService;
+        public static IGameRepository Repository { get; private set; } = null!;
+        private static IGameApiService _apiService = null!;
+        public static IGameApiService ApiService => _apiService;
+        public static IAppDialogService DialogService { get; } = new AppDialogService();
+        public static IImportService ImportService { get; } = new Infrastructure.Files.ImportService();
+        public static IExportService ExportService { get; } = new Infrastructure.Files.ExportService();
         public static bool IsDarkTheme { get; private set; }
+
+        // Proyecto Supabase nuevo y separado de Neon, solo para cuenta + ajustes (ver el diseño
+        // de esta funcionalidad) -- la colección de juegos sigue en Neon sin tocar su esquema.
+        // La anon key es pública a propósito (como una config de Firebase): quien protege los
+        // datos de cada usuario es Row Level Security en la tabla user_settings, no el secreto
+        // de esta clave.
+        private const string SupabaseUrl = "https://japhvpzqbuedqeexgamy.supabase.co";
+        private const string SupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImphcGh2cHpxYnVlZHFlZXhnYW15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxODMyMjcsImV4cCI6MjEwMzc1OTIyN30.xWG6r_nlY6Wm_-u-PFNluke57Vr3wewiJDBo1I4xFo4";
+        public static IAccountService AccountService { get; } = new SupabaseAccountService(SupabaseUrl, SupabaseAnonKey);
 
         private static readonly string ConfigFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VideoGameLibrary");
@@ -60,7 +82,50 @@ namespace VideoGameLibrary
             {
                 LoggingService.PurgeOldLogs();
 
+                await AccountService.InitializeAsync();
+
+                var loggedIn = await AccountService.TryRestoreSessionAsync();
+                if (!loggedIn)
+                {
+                    // LoginWindow gestiona su propio flujo (incluida la oferta de subir la
+                    // configuración local si la cuenta es nueva) antes de cerrarse con éxito.
+                    loggedIn = new LoginWindow(AccountService).ShowDialog() == true;
+                }
+
+                if (!loggedIn)
+                {
+                    Shutdown();
+                    return;
+                }
+
                 var config = LoadConfig();
+
+                try
+                {
+                    var remote = await AccountService.GetSettingsAsync();
+                    if (remote != null && !string.IsNullOrEmpty(remote.ConnectionString))
+                    {
+                        // La cuenta es la fuente de verdad si ya tiene datos guardados: sustituye
+                        // la caché local y la refresca para que siga sirviendo sin conexión.
+                        config = new AppConfig
+                        {
+                            ConnectionString = remote.ConnectionString,
+                            ScanDexToken = remote.ScanDexToken,
+                            IgdbClientId = remote.IgdbClientId,
+                            IgdbClientSecret = remote.IgdbClientSecret,
+                            RawgApiKey = remote.RawgApiKey,
+                            TheGamesDbApiKey = remote.TheGamesDbApiKey,
+                            DarkTheme = config.DarkTheme
+                        };
+                        PersistConfig(config);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Sin red o Supabase caído: sigue con la caché local en vez de bloquear el arranque.
+                    LoggingService.LogError("Recuperar ajustes de la cuenta al arrancar", ex);
+                }
+
                 IsDarkTheme = config.DarkTheme;
                 ApplyTheme(IsDarkTheme);
 
@@ -70,7 +135,7 @@ namespace VideoGameLibrary
                     // ReconnectAsync (así el usuario ve enseguida si la cadena es incorrecta,
                     // en vez de descubrirlo en un error genérico al arrancar). Si cancela o la
                     // conexión falla, Repository se queda sin asignar y se cierra la app.
-                    new Views.SettingsDialog(firstRun: true).ShowDialog();
+                    new SettingsDialog(firstRun: true).ShowDialog();
 
                     if (Repository == null)
                     {
@@ -119,7 +184,7 @@ namespace VideoGameLibrary
 
         private static async Task CheckForUpdatesAsync(MainViewModel mainVm)
         {
-            var update = await UpdateCheckService.CheckForUpdateAsync();
+            var update = await new UpdateCheckService().CheckForUpdateAsync();
             if (update == null) return;
 
             mainVm.SnackbarMessageQueue.Enqueue(
@@ -275,6 +340,51 @@ namespace VideoGameLibrary
             public string RawgApiKey { get; set; } = string.Empty;
             public string TheGamesDbApiKey { get; set; } = string.Empty;
             public bool DarkTheme { get; set; }
+        }
+
+        // "Recordarme" en LoginWindow: guarda email+contraseña cifrados con el mismo DPAPI que
+        // el resto de esta clase, en un archivo aparte de config.json (son credenciales de la
+        // cuenta, no ajustes de la app). Solo evita volver a teclearlos si hace falta pasar por
+        // LoginWindow otra vez (sesión caducada/revocada, borrado manual de session.dat, etc.) --
+        // el arranque normal ya no pasa por aquí gracias a la sesión persistida de Supabase.
+        private static readonly string CredentialsFile = Path.Combine(ConfigFolder, "credentials.dat");
+
+        public static void SaveRememberedLogin(string email, string password)
+        {
+            try
+            {
+                Directory.CreateDirectory(ConfigFolder);
+                var json = JsonSerializer.Serialize(new RememberedLogin { Email = email, Password = password });
+                File.WriteAllText(CredentialsFile, Protect(json));
+            }
+            catch (Exception ex) { LoggingService.LogError("Guardar datos de inicio de sesión recordados", ex); }
+        }
+
+        public static void ClearRememberedLogin()
+        {
+            try { if (File.Exists(CredentialsFile)) File.Delete(CredentialsFile); }
+            catch (Exception ex) { LoggingService.LogError("Borrar datos de inicio de sesión recordados", ex); }
+        }
+
+        public static RememberedLogin? LoadRememberedLogin()
+        {
+            try
+            {
+                if (!File.Exists(CredentialsFile)) return null;
+                var json = Unprotect(File.ReadAllText(CredentialsFile));
+                return JsonSerializer.Deserialize<RememberedLogin>(json);
+            }
+            catch (Exception ex)
+            {
+                LoggingService.LogError("Cargar datos de inicio de sesión recordados", ex);
+                return null;
+            }
+        }
+
+        public class RememberedLogin
+        {
+            public string Email { get; set; } = string.Empty;
+            public string Password { get; set; } = string.Empty;
         }
     }
 }

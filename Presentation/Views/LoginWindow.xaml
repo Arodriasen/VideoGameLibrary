@@ -1,0 +1,62 @@
+<Window x:Class="VideoGameLibrary.Presentation.Views.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Mi Colección de Juegos — Iniciar sesión" Height="480" Width="420"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        FontFamily="{DynamicResource MaterialDesignFont}">
+
+    <md:DialogHost Identifier="LoginDialogHost">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+                <md:PackIcon Kind="AccountCircleOutline" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Tu cuenta" FontSize="18" FontWeight="Medium" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock TextWrapping="Wrap" Margin="0,8,0,0" FontSize="12"
+                       Foreground="{DynamicResource MaterialDesignBodyLight}"
+                       Text="Inicia sesión para que tu cadena de conexión y tus claves de API viajen con tu cuenta, no solo con este ordenador."/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" VerticalAlignment="Center">
+            <TextBox x:Name="TxtEmail" Margin="0,8,0,0"
+                     md:HintAssist.Hint="Correo electrónico"
+                     Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+
+            <PasswordBox x:Name="TxtPassword" Margin="0,16,0,0"
+                         md:HintAssist.Hint="Contraseña"
+                         Style="{StaticResource MaterialDesignOutlinedPasswordBox}"/>
+
+            <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <CheckBox x:Name="ChkRemember" Grid.Column="0" Content="Recordarme" IsChecked="True"/>
+                <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                           Text="¿Olvidaste tu contraseña?" Cursor="Hand" MouseLeftButtonUp="TxtForgotPassword_Click"
+                           Foreground="{DynamicResource PrimaryHueMidBrush}" FontSize="12" TextDecorations="Underline"/>
+            </Grid>
+
+            <ProgressBar x:Name="LoadingIndicator" IsIndeterminate="True" Height="4" Margin="0,16,0,0" Visibility="Collapsed"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button x:Name="BtnSignUp" Content="CREAR CUENTA" Click="BtnSignUp_Click"
+                    Style="{StaticResource MaterialDesignOutlinedButton}" Margin="0,0,8,0"
+                    md:ButtonAssist.CornerRadius="4"/>
+            <Button x:Name="BtnSignIn" Content="INICIAR SESIÓN" Click="BtnSignIn_Click"
+                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    md:ButtonAssist.CornerRadius="4"/>
+        </StackPanel>
+    </Grid>
+    </md:DialogHost>
+</Window>
