@@ -42,7 +42,7 @@ namespace VideoGameLibrary.Presentation.ViewModels
         {
             IsLoading = true;
 
-            var allGames = await _repo.GetAllAsync();
+            var allGames = await _repo.GetAllWithoutCoversAsync();
             WishlistCount = allGames.Count(g => g.IsWishlist);
 
             // Las estadísticas de la colección no mezclan juegos que aún no tienes (lista de deseos)

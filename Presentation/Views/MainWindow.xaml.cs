@@ -182,17 +182,42 @@ namespace VideoGameLibrary.Presentation.Views
             }
         }
 
-        private void BtnView_Click(object sender, RoutedEventArgs e)
+        private async void BtnView_Click(object sender, RoutedEventArgs e)
         {
             if (((Button)sender).Tag is not GameViewModel gvm) return;
 
+            await EnsureCoverOrWarnAsync(gvm);
             var dialog = new GameDetailDialog(gvm) { Owner = this };
             dialog.ShowDialog();
+        }
+
+        // Las portadas llegan en segundo plano: antes de abrir un juego se pide la suya si aún no ha
+        // llegado. Si falla (sin conexión), la ficha se abre igual sin portada.
+        private async System.Threading.Tasks.Task<bool> EnsureCoverOrWarnAsync(GameViewModel gvm)
+        {
+            try
+            {
+                await Vm.EnsureCoverLoadedAsync(gvm);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LoggingService.LogError($"Cargar la portada de \"{gvm.Title}\"", ex);
+                return false;
+            }
         }
 
         private async void BtnEdit_Click(object sender, RoutedEventArgs e)
         {
             if (((Button)sender).Tag is not GameViewModel gvm) return;
+
+            // Imprescindible antes de editar: si la portada aún no ha llegado, guardar la borraría
+            if (!await EnsureCoverOrWarnAsync(gvm))
+            {
+                await App.DialogService.ShowErrorAsync("MainDialogHost",
+                    "No se ha podido cargar la portada de este juego desde la base de datos. Inténtalo de nuevo en un momento.");
+                return;
+            }
 
             var editVm = App.GetEditViewModel();
             editVm.LoadFromGame(gvm.ToModel());
@@ -272,6 +297,9 @@ namespace VideoGameLibrary.Presentation.Views
             }
 
             if (dlg.ShowDialog() != true) return;
+
+            if (selectionOnly)
+                await Vm.EnsureCoversLoadedAsync(Vm.Games.Where(g => g.IsSelected)); // el Excel lleva las portadas
 
             var games = selectionOnly
                 ? Vm.Games.Where(g => g.IsSelected).Select(g => g.ToModel()).ToList()

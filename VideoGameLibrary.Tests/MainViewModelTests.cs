@@ -129,6 +129,38 @@ namespace VideoGameLibrary.Tests
 
             Assert.Equal("En deseos", Assert.Single(_vm.Games).Title);
         }
+
+        // La lista se carga sin portadas y llegan después: EnsureCoversLoadedAsync las trae ya
+        [WpfFact]
+        public async Task EnsureCoversLoadedAsync_trae_las_portadas_que_aun_no_han_llegado()
+        {
+            await SeedAsync(
+                new Game { Title = "Con portada", CoverData = new byte[] { 1, 2, 3 } },
+                new Game { Title = "Sin portada" });
+            foreach (var g in _vm.Games) g.CoverData = null; // como si el lote de fondo aún no hubiera llegado
+
+            await _vm.EnsureCoversLoadedAsync(_vm.Games);
+
+            Assert.Equal(new byte[] { 1, 2, 3 }, _vm.Games.Single(g => g.Title == "Con portada").CoverData);
+            Assert.Null(_vm.Games.Single(g => g.Title == "Sin portada").CoverData);
+        }
+
+        // Lo peligroso de cargar las portadas después: guardar un juego con la portada todavía a
+        // null la borraría de la base de datos. MoveToCollectionAsync la pide antes de guardar.
+        [WpfFact]
+        public async Task MoveToCollectionAsync_antes_de_que_llegue_la_portada_no_la_borra()
+        {
+            await SeedAsync(new Game { Title = "Deseado", IsWishlist = true, CoverData = new byte[] { 7, 8, 9 } });
+            _vm.ToggleWishlistViewCommand.Execute(null);
+            var gvm = Assert.Single(_vm.Games);
+            gvm.CoverData = null; // la portada aún no ha llegado
+
+            await _vm.MoveToCollectionAsync(gvm);
+
+            var saved = Assert.Single(await _repo.GetAllAsync());
+            Assert.False(saved.IsWishlist);
+            Assert.Equal(new byte[] { 7, 8, 9 }, saved.CoverData);
+        }
     }
 
     // Tests puros de la utilidad estática de separar géneros, sin necesidad de instanciar

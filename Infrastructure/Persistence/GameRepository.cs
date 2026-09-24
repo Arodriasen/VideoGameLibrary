@@ -70,6 +70,53 @@ namespace VideoGameLibrary.Infrastructure.Persistence
         public Task<List<Game>> GetAllAsync() => RunExclusiveAsync(() =>
             _db.Games.AsNoTracking().Where(g => g.DeletedDate == null).OrderBy(g => g.Title).ToListAsync());
 
+        // Todas las columnas menos "CoverData": la proyección hace que Postgres no tenga que leer
+        // las portadas (guardadas aparte, en TOAST), que es lo lento con la base recién despertada.
+        public Task<List<Game>> GetAllWithoutCoversAsync() => RunExclusiveAsync(() =>
+            _db.Games.AsNoTracking()
+                .Where(g => g.DeletedDate == null)
+                .OrderBy(g => g.Title)
+                .Select(g => new Game
+                {
+                    Id = g.Id,
+                    Barcode = g.Barcode,
+                    Title = g.Title,
+                    Platform = g.Platform,
+                    Publisher = g.Publisher,
+                    Genre = g.Genre,
+                    Tags = g.Tags,
+                    Year = g.Year,
+                    CoverUrl = g.CoverUrl,
+                    Notes = g.Notes,
+                    Rating = g.Rating,
+                    Played = g.Played,
+                    IsWishlist = g.IsWishlist,
+                    AddedDate = g.AddedDate,
+                    DeletedDate = g.DeletedDate
+                })
+                .ToListAsync());
+
+        // "IS NOT NULL" no necesita leer el contenido de la portada: es instantáneo aunque la base
+        // esté dormida. Sirve para el filtro "sin portada" y para saber qué portadas pedir después.
+        public Task<HashSet<int>> GetIdsWithCoverAsync() => RunExclusiveAsync(async () =>
+            (await _db.Games.AsNoTracking()
+                .Where(g => g.DeletedDate == null && g.CoverData != null)
+                .Select(g => g.Id)
+                .ToListAsync())
+            .ToHashSet());
+
+        public Task<Dictionary<int, byte[]>> GetCoversAsync(IReadOnlyCollection<int> ids) => RunExclusiveAsync(async () =>
+        {
+            if (ids.Count == 0) return new Dictionary<int, byte[]>();
+
+            var idList = ids.ToList();
+            var rows = await _db.Games.AsNoTracking()
+                .Where(g => idList.Contains(g.Id) && g.CoverData != null)
+                .Select(g => new { g.Id, g.CoverData })
+                .ToListAsync();
+            return rows.ToDictionary(r => r.Id, r => r.CoverData!);
+        });
+
         public Task<Game?> GetByBarcodeAsync(string barcode)
         {
             if (string.IsNullOrEmpty(barcode)) return Task.FromResult<Game?>(null);

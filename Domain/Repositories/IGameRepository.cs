@@ -15,6 +15,15 @@ namespace VideoGameLibrary.Domain.Repositories
         Task SetCollectionNameAsync(string name);
 
         Task<List<Game>> GetAllAsync();
+
+        // Las portadas son lo único pesado de leer (en Neon, con la base "dormida", tardan casi un
+        // minuto en total frente a medio segundo del resto): la lista principal se carga sin ellas
+        // y las portadas llegan después, por lotes. GetAllAsync sigue trayéndolo todo para quien
+        // de verdad las necesita (exportar a Excel, duplicados...).
+        Task<List<Game>> GetAllWithoutCoversAsync();
+        Task<HashSet<int>> GetIdsWithCoverAsync();
+        Task<Dictionary<int, byte[]>> GetCoversAsync(IReadOnlyCollection<int> ids);
+
         Task<Game?> GetByBarcodeAsync(string barcode);
         Task AddAsync(Game game);
         Task UpdateAsync(Game game);

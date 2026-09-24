@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -10,6 +11,7 @@ using VideoGameLibrary.Application.Abstractions;
 using VideoGameLibrary.Application.Games;
 using VideoGameLibrary.Domain.Entities;
 using VideoGameLibrary.Domain.Repositories;
+using VideoGameLibrary.Infrastructure.Logging;
 
 namespace VideoGameLibrary.Presentation.ViewModels
 {
@@ -18,6 +20,13 @@ namespace VideoGameLibrary.Presentation.ViewModels
         private readonly IGameRepository _repo;
         private readonly IGameApiService _api;
         private List<Game> _allGames = new();
+
+        // Portadas: la lista se muestra sin ellas y llegan después, por lotes (ver LoadMissingCoversAsync).
+        // Se guardan en memoria durante la sesión para no volver a pedirlas en cada recarga.
+        private const int CoverBatchSize = 12;
+        private readonly Dictionary<int, byte[]> _coverCache = new();
+        private HashSet<int> _idsWithCover = new();
+        private CancellationTokenSource? _coverLoadCts;
 
         [ObservableProperty] private ObservableCollection<GameViewModel> _games = new();
         [ObservableProperty] private string _searchText = string.Empty;
@@ -121,16 +130,101 @@ namespace VideoGameLibrary.Presentation.ViewModels
         public async Task LoadGamesAsync()
         {
             IsLoading = true;
-            _allGames = await _repo.GetAllAsync();
-            RebuildFilterOptions();
-            ApplyFilters();
+            try
+            {
+                // Primero todo menos las portadas (medio segundo aunque la base esté dormida):
+                // la lista aparece enseguida y las portadas se van rellenando después.
+                _allGames = await _repo.GetAllWithoutCoversAsync();
+                _idsWithCover = await _repo.GetIdsWithCoverAsync();
+                foreach (var game in _allGames)
+                    if (_coverCache.TryGetValue(game.Id, out var cover))
+                        game.CoverData = cover;
 
-            CollectionName = await _repo.GetCollectionNameAsync();
-            HasCollectionName = !string.IsNullOrWhiteSpace(CollectionName);
-            WindowTitle = HasCollectionName ? $"Mi Colección de Juegos — {CollectionName}" : "Mi Colección de Juegos";
+                RebuildFilterOptions();
+                ApplyFilters();
 
-            IsLoading = false;
+                CollectionName = await _repo.GetCollectionNameAsync();
+                HasCollectionName = !string.IsNullOrWhiteSpace(CollectionName);
+                WindowTitle = HasCollectionName ? $"Mi Colección de Juegos — {CollectionName}" : "Mi Colección de Juegos";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+
+            StartLoadingMissingCovers();
         }
+
+        // Pide en segundo plano las portadas que aún no están en memoria, empezando por las que se
+        // ven en pantalla, en lotes pequeños: así van apareciendo poco a poco y cualquier otra
+        // operación con la base de datos solo espera, como mucho, a que termine el lote en curso
+        // (el repositorio atiende una operación cada vez). Una recarga cancela la tanda anterior.
+        private void StartLoadingMissingCovers()
+        {
+            _coverLoadCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _coverLoadCts = cts;
+            _ = LoadMissingCoversAsync(cts.Token);
+        }
+
+        private async Task LoadMissingCoversAsync(CancellationToken ct)
+        {
+            var visibleFirst = Games.Select(g => g.Id)
+                .Concat(_allGames.Select(g => g.Id))
+                .Distinct()
+                .Where(id => _idsWithCover.Contains(id) && !_coverCache.ContainsKey(id))
+                .ToList();
+            if (visibleFirst.Count == 0) return;
+
+            try
+            {
+                for (int i = 0; i < visibleFirst.Count; i += CoverBatchSize)
+                {
+                    if (ct.IsCancellationRequested) return;
+                    StatusMessage = $"Cargando portadas... {i} de {visibleFirst.Count}";
+
+                    var covers = await _repo.GetCoversAsync(visibleFirst.Skip(i).Take(CoverBatchSize).ToList());
+                    if (ct.IsCancellationRequested) return;
+
+                    foreach (var (id, cover) in covers)
+                        ApplyCover(id, cover);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Sin portadas se puede seguir usando la app: se registra y se sigue sin ellas
+                LoggingService.LogError("Cargar portadas en segundo plano", ex);
+            }
+            finally
+            {
+                if (!ct.IsCancellationRequested) StatusMessage = string.Empty;
+            }
+        }
+
+        private void ApplyCover(int id, byte[] cover)
+        {
+            _coverCache[id] = cover;
+            var game = _allGames.FirstOrDefault(g => g.Id == id);
+            if (game != null) game.CoverData = cover;
+            var vm = Games.FirstOrDefault(g => g.Id == id);
+            if (vm != null) vm.CoverData = cover;
+        }
+
+        // Antes de editar, mover de lista o exportar un juego: si su portada aún no ha llegado, se
+        // pide ya. Si no, el modelo iría sin portada y al guardarlo se borraría de la base de datos.
+        public async Task EnsureCoversLoadedAsync(IEnumerable<GameViewModel> games)
+        {
+            var missing = games
+                .Where(g => g.CoverData == null && _idsWithCover.Contains(g.Id))
+                .Select(g => g.Id)
+                .ToList();
+            if (missing.Count == 0) return;
+
+            foreach (var (id, cover) in await _repo.GetCoversAsync(missing))
+                ApplyCover(id, cover);
+        }
+
+        public Task EnsureCoverLoadedAsync(GameViewModel game) => EnsureCoversLoadedAsync(new[] { game });
 
         private void RebuildFilterOptions()
         {
@@ -231,8 +325,9 @@ namespace VideoGameLibrary.Presentation.ViewModels
                 filtered = filtered.Where(g => selectedRatings.Contains(g.Rating));
             if (selectedPlayed.Count > 0)
                 filtered = filtered.Where(g => selectedPlayed.Contains(g.Played));
+            // Con _idsWithCover y no con CoverData: mientras se cargan, las portadas aún están a null
             if (OnlyMissingCover)
-                filtered = filtered.Where(g => g.CoverData == null || g.CoverData.Length == 0);
+                filtered = filtered.Where(g => !_idsWithCover.Contains(g.Id));
 
             IEnumerable<Game> ordered = SortOption switch
             {
@@ -306,9 +401,16 @@ namespace VideoGameLibrary.Presentation.ViewModels
         public async Task SaveGameAsync(Game game)
         {
             if (game.Id == 0)
+            {
                 await _repo.AddAsync(game);
+            }
             else
+            {
                 await _repo.UpdateAsync(game);
+                // La edición puede haber cambiado la portada: se descarta la de memoria para que
+                // la recarga la vuelva a pedir
+                _coverCache.Remove(game.Id);
+            }
 
             await LoadGamesAsync();
         }
@@ -354,6 +456,7 @@ namespace VideoGameLibrary.Presentation.ViewModels
         // Ya lo has comprado: pasa el juego de la lista de deseos a la colección
         public async Task MoveToCollectionAsync(GameViewModel gvm)
         {
+            await EnsureCoverLoadedAsync(gvm);
             var game = gvm.ToModel();
             game.IsWishlist = false;
             await _repo.UpdateAsync(game);

@@ -99,7 +99,22 @@ namespace VideoGameLibrary.Presentation.Views
             else
                 App.ClearRememberedLogin();
 
-            var remote = await _accountService.GetSettingsAsync();
+            UserSettings? remote;
+            try
+            {
+                remote = await _accountService.GetSettingsAsync();
+            }
+            catch (Exception ex)
+            {
+                // No se sabe qué tiene la cuenta: NO se ofrece subir la configuración local (podría
+                // pisar la de la cuenta). Se sigue con la de este equipo; App.OnStartup vuelve a
+                // intentar leer la de la cuenta justo después.
+                LoggingService.LogError("Recuperar ajustes de la cuenta tras iniciar sesión", ex);
+                DialogResult = true;
+                Close();
+                return;
+            }
+
             if (remote == null || string.IsNullOrEmpty(remote.ConnectionString))
             {
                 var local = App.LoadConfig();

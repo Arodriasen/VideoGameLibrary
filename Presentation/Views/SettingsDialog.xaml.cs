@@ -157,7 +157,7 @@ namespace VideoGameLibrary.Presentation.Views
         {
             try
             {
-                var all = await App.Repository.GetAllAsync();
+                var all = await App.Repository.GetAllWithoutCoversAsync();
                 var groups = ImportPreviewBuilder.FindDuplicateGroups(all);
 
                 if (groups.Count == 0)
@@ -218,7 +218,7 @@ namespace VideoGameLibrary.Presentation.Views
                     return;
                 }
 
-                var existing = await App.Repository.GetAllAsync();
+                var existing = await App.Repository.GetAllWithoutCoversAsync();
                 var classified = ImportPreviewBuilder.BuildPreview(parsed, existing);
                 var previewItems = classified.Select(c => new ImportPreviewItem(c.Game, c.Status)).ToList();
 

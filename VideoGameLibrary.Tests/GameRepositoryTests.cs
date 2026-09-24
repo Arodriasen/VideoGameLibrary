@@ -176,6 +176,32 @@ namespace VideoGameLibrary.Tests
             Assert.Equal(3, (await _repo.GetAllAsync()).Count); // 1 original + 2 nuevos
         }
 
+        // La lista principal se carga sin portadas (lo lento de leer en Neon) y las portadas aparte
+        [Fact]
+        public async Task GetAllWithoutCoversAsync_trae_todo_menos_las_portadas_y_GetCoversAsync_las_trae_aparte()
+        {
+            var conPortada = NewGame("Con portada", barcode: "111");
+            conPortada.CoverData = new byte[] { 1, 2, 3 };
+            conPortada.Rating = 4;
+            var sinPortada = NewGame("Sin portada", barcode: "222");
+            var borrado = NewGame("Borrado", barcode: "333");
+            borrado.CoverData = new byte[] { 9 };
+            await _repo.AddAsync(conPortada);
+            await _repo.AddAsync(sinPortada);
+            await _repo.AddAsync(borrado);
+            await _repo.DeleteAsync(borrado.Id);
+
+            var lista = await _repo.GetAllWithoutCoversAsync();
+            Assert.Equal(new[] { "Con portada", "Sin portada" }, lista.Select(g => g.Title));
+            Assert.All(lista, g => Assert.Null(g.CoverData));
+            Assert.Equal(4, lista.Single(g => g.Title == "Con portada").Rating); // el resto de campos, sí
+
+            Assert.Equal(new HashSet<int> { conPortada.Id }, await _repo.GetIdsWithCoverAsync());
+
+            var portadas = await _repo.GetCoversAsync(new[] { conPortada.Id, sinPortada.Id });
+            Assert.Equal(new byte[] { 1, 2, 3 }, Assert.Single(portadas).Value);
+        }
+
         // Comprobación empírica de que Postgres, como SQLite, permite varias filas NULL en un
         // índice único (a diferencia de SQL Server, que solo permite una) -- ver GameDbContext.
         [Fact]

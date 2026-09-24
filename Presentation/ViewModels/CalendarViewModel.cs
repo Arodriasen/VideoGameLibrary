@@ -58,7 +58,7 @@ namespace VideoGameLibrary.Presentation.ViewModels
 
         public async Task InitializeAsync()
         {
-            var games = await _repo.GetAllAsync();
+            var games = await _repo.GetAllWithoutCoversAsync(); // el calendario no usa las portadas de la colección
             BuildExistingGameIndex(games);
             BuildPlatformFilters(games);
             await LoadMonthAsync();

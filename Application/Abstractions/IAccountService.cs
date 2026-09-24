@@ -24,8 +24,10 @@ namespace VideoGameLibrary.Application.Abstractions
         // Verifica el código recibido por correo y, si es válido, establece la contraseña nueva.
         Task ResetPasswordAsync(string email, string code, string newPassword);
 
-        // null si no hay ninguna fila guardada todavía (cuenta nueva) o si falla la petición
-        // (sin conexión, etc.) — el llamador decide si sigue con la caché local en ese caso.
+        // null SOLO si la cuenta no tiene ninguna fila guardada todavía (cuenta nueva). Si la
+        // petición falla (sin conexión, Supabase no responde...) lanza una excepción: no hay que
+        // confundir "no sé qué ajustes tiene la cuenta" con "la cuenta está vacía", porque lo
+        // segundo lleva a ofrecer subir la configuración local y pisar la de la cuenta.
         Task<UserSettings?> GetSettingsAsync();
         Task SaveSettingsAsync(UserSettings settings);
     }
