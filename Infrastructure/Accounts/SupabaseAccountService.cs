@@ -1,8 +1,10 @@
 using System;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Supabase;
 using Supabase.Gotrue;
+using Supabase.Gotrue.Exceptions;
 using VideoGameLibrary.Application.Abstractions;
 using VideoGameLibrary.Application.Models;
 using VideoGameLibrary.Infrastructure.Logging;
@@ -46,6 +48,44 @@ namespace VideoGameLibrary.Infrastructure.Accounts
         private static TimeoutException ServiceNotResponding() =>
             new($"El servicio de cuentas no ha respondido en {NetworkTimeout.TotalSeconds:0} segundos. Revisa tu conexión a internet e inténtalo de nuevo.");
 
+        // Para iniciar sesión y crear cuenta: traduce los errores de Supabase a los de la app (ver
+        // AccountExceptions), así la ventana de login muestra "imposible iniciar sesión, reinténtelo
+        // más tarde" cuando el problema es del servicio y no del usuario.
+        private static async Task<T> WithAccountErrors<T>(Task<T> call)
+        {
+            try
+            {
+                return await WithTimeout(call);
+            }
+            catch (GotrueException ex) when (IsBadLogin(ex))
+            {
+                throw new InvalidCredentialsException(ex);
+            }
+            catch (GotrueException ex) when (ex.Reason == FailureHint.Reason.UserEmailNotConfirmed)
+            {
+                throw new EmailNotConfirmedException(ex);
+            }
+            catch (GotrueException ex) when (IsServiceProblem(ex))
+            {
+                throw new AccountServiceUnavailableException(ex);
+            }
+            catch (Exception ex) when (ex is TimeoutException or HttpRequestException or TaskCanceledException)
+            {
+                throw new AccountServiceUnavailableException(ex);
+            }
+        }
+
+        // Supabase responde 400 con error_code "invalid_credentials"; según la versión de la
+        // librería llega como UserBadLogin/UserBadPassword o como Unknown, por eso se miran ambos.
+        private static bool IsBadLogin(GotrueException ex) =>
+            ex.Reason is FailureHint.Reason.UserBadLogin or FailureHint.Reason.UserBadPassword
+            || (ex.StatusCode == 400 && (ex.Message?.Contains("invalid_credentials") ?? false));
+
+        // Sin respuesta, sin conexión, demasiadas peticiones o fallo del propio servidor
+        private static bool IsServiceProblem(GotrueException ex) =>
+            ex.Reason is FailureHint.Reason.Offline or FailureHint.Reason.UserTooManyRequests
+            || ex.StatusCode == 0 || ex.StatusCode == 429 || ex.StatusCode >= 500;
+
         // Carga la sesión guardada en este equipo (y la refresca si hace falta). Si no responde a
         // tiempo no se bloquea el arranque: TryRestoreSessionAsync decidirá si hay que pedir login.
         public async Task InitializeAsync()
@@ -56,12 +96,19 @@ namespace VideoGameLibrary.Infrastructure.Accounts
             }
             catch (Exception ex)
             {
+                _unavailableAtStartup = ex is TimeoutException;
                 LoggingService.LogError("Inicializar el servicio de cuentas", ex);
             }
         }
 
+        // Si Supabase no ha respondido al inicializar, restaurar la sesión tampoco lo hará: se
+        // salta directamente a la ventana de login en vez de esperar otros 15 s sin nada en pantalla
+        private bool _unavailableAtStartup;
+
         public async Task<bool> TryRestoreSessionAsync()
         {
+            if (_unavailableAtStartup) return false;
+
             try
             {
                 var session = await WithTimeout(_client.Auth.RetrieveSessionAsync());
@@ -79,13 +126,13 @@ namespace VideoGameLibrary.Infrastructure.Accounts
         // correo -- de ahí devolver ConfirmationRequired en vez de asumir que ya hay sesión.
         public async Task<SignUpResult> SignUpAsync(string email, string password)
         {
-            var session = await WithTimeout(_client.Auth.SignUp(email, password));
+            var session = await WithAccountErrors(_client.Auth.SignUp(email, password));
             return string.IsNullOrEmpty(session?.AccessToken) ? SignUpResult.ConfirmationRequired : SignUpResult.SignedIn;
         }
 
         public async Task SignInAsync(string email, string password)
         {
-            await WithTimeout(_client.Auth.SignInWithPassword(email, password));
+            await WithAccountErrors(_client.Auth.SignInWithPassword(email, password));
         }
 
         // Local (no Global): cierra sesión solo en este dispositivo, no revoca la sesión de los

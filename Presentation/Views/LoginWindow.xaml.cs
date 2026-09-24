@@ -41,11 +41,26 @@ namespace VideoGameLibrary.Presentation.Views
                 await _accountService.SignInAsync(email, password);
                 await ResolveSettingsAndCloseAsync(email, password);
             }
+            catch (InvalidCredentialsException)
+            {
+                // Error del usuario, no de la app: no se registra
+                await App.DialogService.ShowErrorAsync("LoginDialogHost",
+                    "Correo o contraseña incorrectos. Si no la recuerdas, usa \"¿Olvidaste tu contraseña?\".",
+                    "Imposible iniciar sesión");
+            }
+            catch (EmailNotConfirmedException)
+            {
+                await App.DialogService.ShowWarningAsync("LoginDialogHost",
+                    "Tu cuenta todavía no está confirmada. Revisa tu correo (también la carpeta de spam) y pulsa el enlace de confirmación.",
+                    "Imposible iniciar sesión");
+            }
             catch (Exception ex)
             {
+                // Servicio caído, sin conexión, sin respuesta a tiempo o cualquier otro fallo: el
+                // detalle técnico va al registro de errores, el usuario solo necesita saber que reintente
                 LoggingService.LogError("Iniciar sesión", ex);
                 await App.DialogService.ShowErrorAsync("LoginDialogHost",
-                    $"No se ha podido iniciar sesión. Revisa tu correo y contraseña:\n{ex.Message}");
+                    "Imposible iniciar sesión, reinténtelo más tarde.", "Imposible iniciar sesión");
             }
             finally
             {
@@ -78,8 +93,15 @@ namespace VideoGameLibrary.Presentation.Views
 
                 await ResolveSettingsAndCloseAsync(email, password);
             }
+            catch (AccountServiceUnavailableException ex)
+            {
+                LoggingService.LogError("Crear cuenta", ex);
+                await App.DialogService.ShowErrorAsync("LoginDialogHost",
+                    "Imposible crear la cuenta, reinténtelo más tarde.", "Imposible crear la cuenta");
+            }
             catch (Exception ex)
             {
+                // Aquí el mensaje de Supabase sí es útil (p. ej. "ya existe una cuenta con ese correo")
                 LoggingService.LogError("Crear cuenta", ex);
                 await App.DialogService.ShowErrorAsync("LoginDialogHost", $"No se ha podido crear la cuenta:\n{ex.Message}");
             }
