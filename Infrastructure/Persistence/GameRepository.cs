@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using VideoGameLibrary.Domain.Entities;
@@ -12,6 +13,13 @@ namespace VideoGameLibrary.Infrastructure.Persistence
     {
         private readonly GameDbContext _db;
 
+        // Un DbContext no admite dos operaciones a la vez, y este vive durante toda la sesión y lo
+        // comparten todas las ventanas. Sin este semáforo, abrir p. ej. el calendario mientras la
+        // lista principal aún está cargando (Neon tarda en "despertar" tras un rato sin uso)
+        // lanzaba "A second operation was started on this context instance". Ahora cada
+        // operación espera su turno en vez de fallar.
+        private readonly SemaphoreSlim _gate = new(1, 1);
+
         public GameRepository(GameDbContext db)
         {
             _db = db;
@@ -20,6 +28,20 @@ namespace VideoGameLibrary.Infrastructure.Persistence
         }
 
         public void Dispose() => _db.Dispose();
+
+        private async Task<T> RunExclusiveAsync<T>(Func<Task<T>> operation)
+        {
+            await _gate.WaitAsync();
+            try { return await operation(); }
+            finally { _gate.Release(); }
+        }
+
+        private async Task RunExclusiveAsync(Func<Task> operation)
+        {
+            await _gate.WaitAsync();
+            try { await operation(); }
+            finally { _gate.Release(); }
+        }
 
         // Aplica las migraciones de EF Core. La base de datos en Neon nace vacía (no hay
         // instalaciones antiguas que preservar), así que basta con Migrate() sin bootstrap especial.
@@ -34,31 +56,27 @@ namespace VideoGameLibrary.Infrastructure.Persistence
                 "CREATE TABLE IF NOT EXISTS \"CollectionSettings\" (\"Id\" integer PRIMARY KEY CHECK (\"Id\" = 1), \"Name\" text NOT NULL DEFAULT '')");
         }
 
-        public async Task<string> GetCollectionNameAsync()
+        public Task<string> GetCollectionNameAsync() => RunExclusiveAsync(async () =>
         {
             var rows = await _db.Database.SqlQueryRaw<string>("SELECT \"Name\" FROM \"CollectionSettings\" WHERE \"Id\" = 1").ToListAsync();
             return rows.FirstOrDefault() ?? string.Empty;
-        }
+        });
 
-        public async Task SetCollectionNameAsync(string name)
-        {
-            await _db.Database.ExecuteSqlRawAsync(
+        public Task SetCollectionNameAsync(string name) => RunExclusiveAsync(() =>
+            _db.Database.ExecuteSqlRawAsync(
                 "INSERT INTO \"CollectionSettings\" (\"Id\", \"Name\") VALUES (1, {0}) " +
-                "ON CONFLICT (\"Id\") DO UPDATE SET \"Name\" = EXCLUDED.\"Name\"", name);
-        }
+                "ON CONFLICT (\"Id\") DO UPDATE SET \"Name\" = EXCLUDED.\"Name\"", name));
 
-        public async Task<List<Game>> GetAllAsync()
+        public Task<List<Game>> GetAllAsync() => RunExclusiveAsync(() =>
+            _db.Games.AsNoTracking().Where(g => g.DeletedDate == null).OrderBy(g => g.Title).ToListAsync());
+
+        public Task<Game?> GetByBarcodeAsync(string barcode)
         {
-            return await _db.Games.AsNoTracking().Where(g => g.DeletedDate == null).OrderBy(g => g.Title).ToListAsync();
+            if (string.IsNullOrEmpty(barcode)) return Task.FromResult<Game?>(null);
+            return RunExclusiveAsync(() => _db.Games.FirstOrDefaultAsync(g => g.Barcode == barcode && g.DeletedDate == null));
         }
 
-        public async Task<Game?> GetByBarcodeAsync(string barcode)
-        {
-            if (string.IsNullOrEmpty(barcode)) return null;
-            return await _db.Games.FirstOrDefaultAsync(g => g.Barcode == barcode && g.DeletedDate == null);
-        }
-
-        public async Task AddAsync(Game game)
+        public Task AddAsync(Game game) => RunExclusiveAsync(async () =>
         {
             _db.Games.Add(game);
             try
@@ -74,9 +92,9 @@ namespace VideoGameLibrary.Infrastructure.Persistence
                 _db.Entry(game).State = EntityState.Detached;
                 throw;
             }
-        }
+        });
 
-        public async Task UpdateAsync(Game game)
+        public Task UpdateAsync(Game game) => RunExclusiveAsync(async () =>
         {
             // El DbContext vive durante toda la sesión de la app, así que una edición anterior
             // del mismo juego puede seguir bajo seguimiento con otra instancia distinta.
@@ -95,11 +113,11 @@ namespace VideoGameLibrary.Infrastructure.Persistence
 
             _db.Games.Update(game);
             await _db.SaveChangesAsync();
-        }
+        });
 
         // Borrado suave: el juego pasa a la papelera (ver GetTrashAsync) en vez de borrarse
         // de verdad, para poder recuperarlo. PurgeExpiredTrashAsync limpia lo antiguo.
-        public async Task DeleteAsync(int id)
+        public Task DeleteAsync(int id) => RunExclusiveAsync(async () =>
         {
             var game = await _db.Games.FindAsync(id);
             if (game != null)
@@ -107,9 +125,9 @@ namespace VideoGameLibrary.Infrastructure.Persistence
                 game.DeletedDate = DateTime.Now;
                 await _db.SaveChangesAsync();
             }
-        }
+        });
 
-        public async Task RestoreAsync(int id)
+        public Task RestoreAsync(int id) => RunExclusiveAsync(async () =>
         {
             var game = await _db.Games.FindAsync(id);
             if (game != null)
@@ -117,19 +135,17 @@ namespace VideoGameLibrary.Infrastructure.Persistence
                 game.DeletedDate = null;
                 await _db.SaveChangesAsync();
             }
-        }
+        });
 
-        public async Task<List<Game>> GetTrashAsync()
-        {
-            return await _db.Games.AsNoTracking()
+        public Task<List<Game>> GetTrashAsync() => RunExclusiveAsync(() =>
+            _db.Games.AsNoTracking()
                 .Where(g => g.DeletedDate != null)
                 .OrderByDescending(g => g.DeletedDate)
-                .ToListAsync();
-        }
+                .ToListAsync());
 
         // Borrado real, sin paso por la papelera — usado por "Eliminar definitivamente",
         // "Vaciar papelera" y por la limpieza automática de la papelera caducada.
-        public async Task PermanentlyDeleteAsync(int id)
+        public Task PermanentlyDeleteAsync(int id) => RunExclusiveAsync(async () =>
         {
             var game = await _db.Games.FindAsync(id);
             if (game != null)
@@ -137,10 +153,10 @@ namespace VideoGameLibrary.Infrastructure.Persistence
                 _db.Games.Remove(game);
                 await _db.SaveChangesAsync();
             }
-        }
+        });
 
         // Se llama al arrancar la app: borra de verdad lo que lleva más de retentionDays en la papelera
-        public async Task<int> PurgeExpiredTrashAsync(int retentionDays = IGameRepository.TrashRetentionDays)
+        public Task<int> PurgeExpiredTrashAsync(int retentionDays = IGameRepository.TrashRetentionDays) => RunExclusiveAsync(async () =>
         {
             var cutoff = DateTime.Now.AddDays(-retentionDays);
             var expired = await _db.Games.Where(g => g.DeletedDate != null && g.DeletedDate < cutoff).ToListAsync();
@@ -149,12 +165,12 @@ namespace VideoGameLibrary.Infrastructure.Persistence
             _db.Games.RemoveRange(expired);
             await _db.SaveChangesAsync();
             return expired.Count;
-        }
+        });
 
         // Inserta varios juegos importados de golpe. Cada uno se guarda por separado para que
         // un código de barras duplicado no descarte el resto del lote; la entidad fallida se
         // suelta del seguimiento del contexto (si no, EF reintentaría guardarla en cada fila siguiente).
-        public async Task<(int Added, int Duplicates)> ImportAsync(IEnumerable<Game> games)
+        public Task<(int Added, int Duplicates)> ImportAsync(IEnumerable<Game> games) => RunExclusiveAsync(async () =>
         {
             int added = 0, duplicates = 0;
 
@@ -174,6 +190,6 @@ namespace VideoGameLibrary.Infrastructure.Persistence
             }
 
             return (added, duplicates);
-        }
+        });
     }
 }
